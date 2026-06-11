@@ -1,0 +1,16 @@
+{
+  "name": "floating-ai-classifier",
+  "version": "1.0.0",
+  "description": "AI自动分类桌面浮动窗 - 输入文本自动分类到任务/想法/账号等类型",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . --platform=win32 --arch=x64 --out=dist"
+  },
+  "dependencies": {
+    "electron": "^28.0.0"
+  },
+  "devDependencies": {
+    "electron-packager": "^17.1.2"
+  }
+}

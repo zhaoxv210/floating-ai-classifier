@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.zip
+*.log
+.DS_Store
+Thumbs.db
+dl.js
+fix-path.js
+download-electron.ps1
+electron.zip

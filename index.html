@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 浮动分类窗</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 紧凑输入栏 -->
+  <div id="compact-bar" class="compact-bar">
+    <div class="drag-handle" id="dragHandle">⋮⋮</div>
+    <input type="text" id="inputField" class="input-field" 
+           placeholder="输入内容，AI自动分类...">
+    <button id="expandBtn" class="icon-btn" title="展开面板">📂</button>
+    <button id="quitBtn" class="icon-btn quit-btn" title="退出">✕</button>
+    <div id="feedbackBadge" class="feedback-badge"></div>
+  </div>
+
+  <!-- 展开面板 -->
+  <div id="expandPanel" class="expand-panel hidden">
+    <!-- 分类选项卡导航 -->
+    <div id="tabBar" class="tab-bar">
+      <button class="tab-btn active" data-tab="all">全部</button>
+    </div>
+
+    <!-- 快速搜索 -->
+    <div id="searchBox" class="search-box">
+      <input type="text" id="searchField" placeholder="🔍 搜索所有条目...">
+    </div>
+
+    <!-- 内容区域 -->
+    <div id="contentArea" class="content-area">
+      <!-- 动态渲染由 renderer.js 处理 -->
+    </div>
+  </div>
+
+  <!-- 分类通知浮层 -->
+  <div id="notification" class="notification hidden"></div>
+</body>
+<script src="renderer.js"></script>
+</html>
