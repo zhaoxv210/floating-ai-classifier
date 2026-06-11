@@ -21,9 +21,10 @@ const dragHandle = document.getElementById('dragHandle');
 
 // ===== 窗口控制 =====
 
-// 拖动
+// 拖动（带节流）
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
+let dragThrottle = false;
 
 dragHandle.addEventListener('mousedown', (e) => {
   isDragging = true;
@@ -32,13 +33,17 @@ dragHandle.addEventListener('mousedown', (e) => {
 });
 
 document.addEventListener('mousemove', (e) => {
-  if (!isDragging) return;
-  const offsetX = e.screenX - dragStart.x;
-  const offsetY = e.screenY - dragStart.y;
-  if (Math.abs(offsetX) > 2 || Math.abs(offsetY) > 2) {
-    API.startDrag(offsetX, offsetY);
-    dragStart = { x: e.screenX, y: e.screenY };
-  }
+  if (!isDragging || dragThrottle) return;
+  dragThrottle = true;
+  requestAnimationFrame(() => {
+    const offsetX = e.screenX - dragStart.x;
+    const offsetY = e.screenY - dragStart.y;
+    if (Math.abs(offsetX) > 2 || Math.abs(offsetY) > 2) {
+      API.startDrag(offsetX, offsetY);
+      dragStart = { x: e.screenX, y: e.screenY };
+    }
+    dragThrottle = false;
+  });
 });
 
 document.addEventListener('mouseup', () => {
@@ -54,11 +59,13 @@ expandBtn.addEventListener('click', () => {
 API.onExpanded((expanded) => {
   if (expanded) {
     expandPanel.classList.remove('hidden');
-    expandBtn.textContent = '📁';
+    expandBtn.textContent = '📂';
+    expandBtn.title = '收起面板';
     loadAllData();
   } else {
     expandPanel.classList.add('hidden');
-    expandBtn.textContent = '📂';
+    expandBtn.textContent = '📁';
+    expandBtn.title = '展开面板';
   }
 });
 
@@ -265,9 +272,14 @@ function renderCard(item) {
         ${item.type === 'tasks' ? `
           <span class="card-checkbox ${statusClass}" data-action="toggle-task" data-id="${item.id}"></span>
         ` : ''}
-        ${escapeHtml(item.text)}
+        ${item.type !== 'quotes' ? escapeHtml(item.text) : ''}
         ${item.priority ? `<span class="priority-badge ${item.priority}">● ${item.priority === 'high' ? '高' : item.priority === 'medium' ? '中' : '低'}</span>` : ''}
       </div>
+      ${item.extra && item.extra.tags && item.extra.tags.length > 0 ? `
+        <div class="card-tags">
+          ${item.extra.tags.map(t => `<span class="tag-badge">#${escapeHtml(t)}</span>`).join('')}
+        </div>
+      ` : ''}
       ${extraContent}
     </div>
   `;
@@ -394,10 +406,13 @@ function bindCardEvents(items) {
       e.stopPropagation();
       const id = el.dataset.id;
       const item = items.find(i => i.id === id);
-      if (item) {
+      if (!item) return;
+      try {
         const newStatus = item.status === 'done' ? 'pending' : 'done';
         await API.updateItem(id, { status: newStatus });
         loadAllData();
+      } catch {
+        showNotification('⚠️ 操作失败，请重试');
       }
     });
   });
@@ -407,9 +422,13 @@ function bindCardEvents(items) {
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = el.dataset.id;
-      await API.deleteItem(id);
-      showNotification('🗑️ 已删除');
-      loadAllData();
+      try {
+        await API.deleteItem(id);
+        showNotification('🗑️ 已删除');
+        loadAllData();
+      } catch {
+        showNotification('⚠️ 删除失败，请重试');
+      }
     });
   });
 
@@ -513,14 +532,6 @@ function escapeHtml(str) {
 }
 
 // ===== 初始化 =====
-
-// 如果已经有数据，在首次加载时预渲染（面板已展开的情况）
-// 监听面板展开状态来处理初始加载
-API.onExpanded((expanded) => {
-  if (expanded) {
-    loadAllData();
-  }
-});
 
 // 焦点自动在输入框
 inputField.focus();

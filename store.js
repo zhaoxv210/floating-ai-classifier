@@ -1,12 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+let safeStorage;
+try {
+  safeStorage = require('electron').safeStorage;
+} catch (e) {
+  safeStorage = null;
+}
 
 class Store {
   constructor() {
-    // 数据目录：用户数据目录下的 .floating-classifier
     this.dataDir = path.join(os.homedir(), '.floating-classifier');
     this.dataFile = path.join(this.dataDir, 'data.json');
+    this.canEncrypt = safeStorage ? safeStorage.isEncryptionAvailable() : false;
     this.data = this.load();
   }
 
@@ -17,7 +23,9 @@ class Store {
       }
       if (fs.existsSync(this.dataFile)) {
         const raw = fs.readFileSync(this.dataFile, 'utf-8');
-        return JSON.parse(raw);
+        const data = JSON.parse(raw);
+        this._decryptItems(data.items || []);
+        return data;
       }
     } catch (e) {
       console.error('加载数据失败:', e);
@@ -31,9 +39,39 @@ class Store {
       if (!fs.existsSync(this.dataDir)) {
         fs.mkdirSync(this.dataDir, { recursive: true });
       }
-      fs.writeFileSync(this.dataFile, JSON.stringify(this.data, null, 2), 'utf-8');
+      const dataCopy = JSON.parse(JSON.stringify(this.data));
+      this._encryptItems(dataCopy.items);
+      fs.writeFileSync(this.dataFile, JSON.stringify(dataCopy, null, 2), 'utf-8');
     } catch (e) {
       console.error('保存数据失败:', e);
+    }
+  }
+
+  _encryptItems(items) {
+    if (!this.canEncrypt) return;
+    for (const item of items) {
+      if (item.parsed && item.parsed.password && typeof item.parsed.password === 'string') {
+        try {
+          const encrypted = safeStorage.encryptString(item.parsed.password);
+          item.parsed.password = { __e: true, d: encrypted.toString('base64') };
+        } catch (e) {
+          console.error('加密密码失败:', e);
+        }
+      }
+    }
+  }
+
+  _decryptItems(items) {
+    if (!this.canEncrypt) return;
+    for (const item of items) {
+      if (item.parsed && item.parsed.password && typeof item.parsed.password === 'object' && item.parsed.password.__e) {
+        try {
+          const buf = Buffer.from(item.parsed.password.d, 'base64');
+          item.parsed.password = safeStorage.decryptString(buf);
+        } catch (e) {
+          console.error('解密密码失败:', e);
+        }
+      }
     }
   }
 

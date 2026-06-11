@@ -162,7 +162,7 @@ class Classifier {
     try {
       if (fs.existsSync(this.rulesFile)) {
         const data = fs.readFileSync(this.rulesFile, 'utf-8');
-        return JSON.parse(data);
+        return JSON.parse(data, reviveRule);
       }
     } catch (e) {
       console.error('加载分类规则失败:', e);
@@ -170,7 +170,7 @@ class Classifier {
     // 如果规则文件不存在或加载失败，从默认规则创建
     const defaultData = {};
     for (const [key, value] of Object.entries(DEFAULT_RULES)) {
-      defaultData[key] = { ...value };
+      defaultData[key] = deepClone(value);
     }
     return defaultData;
   }
@@ -181,7 +181,7 @@ class Classifier {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(this.rulesFile, JSON.stringify(this.rules, null, 2), 'utf-8');
+      fs.writeFileSync(this.rulesFile, JSON.stringify(this.rules, serializeRule, 2), 'utf-8');
     } catch (e) {
       console.error('保存分类规则失败:', e);
     }
@@ -320,10 +320,10 @@ class Classifier {
     const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
     if (emailMatch) result.email = emailMatch[1];
 
-    const userMatch = text.match(/(?:账号|用户名|账户)[：:]\s*(\S+)/);
+    const userMatch = text.match(/(?:账号|用户名|账户)[：:\s]+(\S+)/);
     if (userMatch) result.username = userMatch[1];
 
-    const pwdMatch = text.match(/(?:密码)[：:]\s*(\S+)/);
+    const pwdMatch = text.match(/(?:密码|passwd|password)[：:\s]+(\S+)/i);
     if (pwdMatch) result.password = pwdMatch[1];
 
     const urlMatch = text.match(/https?:\/\/[^\s]+/);
@@ -388,16 +388,35 @@ class Classifier {
       extra.tags = tagMatch.map(t => t.replace('#', ''));
     }
 
-    // 提取URL
-    const urls = text.match(/https?:\/\/[^\s]+/g);
-    if (urls) extra.urls = urls;
-
     return extra;
   }
 
   generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
   }
+}
+
+function deepClone(obj) {
+  if (obj instanceof RegExp) return new RegExp(obj.source, obj.flags);
+  if (Array.isArray(obj)) return obj.map(deepClone);
+  if (obj && typeof obj === 'object') {
+    const copy = {};
+    for (const k of Object.keys(obj)) {
+      copy[k] = deepClone(obj[k]);
+    }
+    return copy;
+  }
+  return obj;
+}
+
+function serializeRule(key, value) {
+  if (value instanceof RegExp) return { __regexp: true, source: value.source, flags: value.flags };
+  return value;
+}
+
+function reviveRule(key, value) {
+  if (value && value.__regexp === true) return new RegExp(value.source, value.flags);
+  return value;
 }
 
 module.exports = Classifier;

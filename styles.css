@@ -130,7 +130,7 @@ body {
 .feedback-badge {
   position: absolute;
   top: 2px;
-  right: 50px;
+  right: 80px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -386,7 +386,7 @@ body {
   font-size: 13px;
   line-height: 1.5;
   color: #444;
-  word-break: break-all;
+  overflow-wrap: break-word;
   padding-left: 0;
 }
 
@@ -564,6 +564,23 @@ body {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.6;
+}
+
+/* ===== 标签显示 ===== */
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tag-badge {
+  display: inline-flex;
+  padding: 1px 6px;
+  background: rgba(74, 144, 217, 0.08);
+  border-radius: 6px;
+  font-size: 10px;
+  color: #4A90D9;
 }
 
 /* ===== 空状态 ===== */
