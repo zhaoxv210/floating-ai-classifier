@@ -162,8 +162,9 @@ function renderTabs() {
   for (const type of typeOrder) {
     if (typeCount[type]) {
       const { count, icon, label } = typeCount[type];
+      const labelText = (label && icon && label.startsWith(icon)) ? label.slice(icon.length).trim() : (label || '');
       html += `<button class="tab-btn ${currentTab === type ? 'active' : ''}" data-tab="${type}">
-        ${icon} ${label} <span class="tab-count">${count}</span>
+        ${icon} ${labelText} <span class="tab-count">${count}</span>
       </button>`;
     }
   }
@@ -245,13 +246,18 @@ function renderCard(item) {
       break;
   }
 
+  // 如果 category 字符串以 icon 开头（默认规则中含 emoji），去掉重复的前缀
+  const categoryLabel = (item.category && item.icon && item.category.startsWith(item.icon))
+    ? item.category.slice(item.icon.length).trim()
+    : (item.category || '');
+
   return `
     <div class="item-card" data-id="${item.id}" data-type="${item.type}">
       <button class="delete-btn" data-action="delete" data-id="${item.id}">✕</button>
       <div class="card-header">
         <div class="card-category-badge" style="background: ${item.color}18; color: ${item.color}">
           <span class="icon">${item.icon}</span>
-          ${item.category}
+          ${categoryLabel}
         </div>
         <div class="card-time">${timeStr}</div>
       </div>
