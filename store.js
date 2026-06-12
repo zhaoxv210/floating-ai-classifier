@@ -110,6 +110,12 @@ class Store {
     return false;
   }
 
+  batchDelete(ids) {
+    const idSet = new Set(ids);
+    this.data.items = this.data.items.filter(item => !idSet.has(item.id));
+    return ids.length;
+  }
+
   getStats() {
     const items = this.data.items;
     const stats = {
@@ -152,6 +158,47 @@ class Store {
 
   exportToJSON() {
     return JSON.stringify(this.data, null, 2);
+  }
+
+  exportToCSV() {
+    const items = this.data.items;
+    if (items.length === 0) return '';
+    const headers = ['类型', '分类', '内容', '时间', '优先级', '状态', '标签'];
+    const rows = items.map(item => [
+      item.type,
+      item.category || '',
+      `"${(item.text || '').replace(/"/g, '""')}"`,
+      item.timestamp || '',
+      item.priority || '',
+      item.status || '',
+      (item.extra && item.extra.tags) ? item.extra.tags.join(';') : '',
+    ].join(','));
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  exportToMarkdown() {
+    const items = this.data.items;
+    if (items.length === 0) return '';
+    let md = '# AI 浮动分类窗 - 数据导出\n\n';
+    md += `> 导出时间: ${new Date().toLocaleString('zh-CN')}\n\n`;
+
+    const byType = {};
+    for (const item of items) {
+      if (!byType[item.type]) byType[item.type] = [];
+      byType[item.type].push(item);
+    }
+
+    for (const [type, typeItems] of Object.entries(byType)) {
+      const first = typeItems[0];
+      md += `## ${first.icon || ''} ${first.category || type}\n\n`;
+      for (const item of typeItems) {
+        const time = new Date(item.timestamp).toLocaleString('zh-CN');
+        const status = item.status === 'done' ? ' [x]' : item.status === 'pending' ? ' [ ]' : '';
+        md += `- ${status} ${item.text} _${time}_\n`;
+      }
+      md += '\n';
+    }
+    return md;
   }
 
   importFromJSON(jsonData) {

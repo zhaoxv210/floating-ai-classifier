@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 浮动分类窗</title>
+  <title></title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -24,14 +24,29 @@
       <button class="tab-btn active" data-tab="all">全部</button>
     </div>
 
-    <!-- 快速搜索 -->
+    <!-- 快速搜索 + 多选按钮 -->
     <div id="searchBox" class="search-box">
       <input type="text" id="searchField" placeholder="🔍 搜索所有条目...">
+      <button id="selectModeBtn" class="select-mode-btn" title="多选模式">☐</button>
+    </div>
+
+    <!-- 批量操作栏 -->
+    <div id="batchBar" class="batch-bar hidden">
+      <button class="batch-action-btn" data-batch="select-all">全选</button>
+      <button class="batch-action-btn danger" data-batch="delete">删除 (<span id="selectedCount">0</span>)</button>
+      <button class="batch-action-btn" data-batch="cancel">取消</button>
     </div>
 
     <!-- 内容区域 -->
     <div id="contentArea" class="content-area">
       <!-- 动态渲染由 renderer.js 处理 -->
+    </div>
+
+    <!-- 底部工具栏 -->
+    <div id="toolBar" class="tool-bar">
+      <button class="tool-btn" data-export="csv">导出 CSV</button>
+      <button class="tool-btn" data-export="markdown">导出 Markdown</button>
+      <button class="tool-btn" data-export="json">导出 JSON</button>
     </div>
   </div>
 

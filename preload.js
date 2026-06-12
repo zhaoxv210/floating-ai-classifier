@@ -12,7 +12,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 删除条目
   deleteItem: (id) => ipcRenderer.invoke('delete-item', id),
-  
+
+  // 批量删除
+  batchDelete: (ids) => ipcRenderer.invoke('batch-delete', ids),
+
+  // 重新分类
+  reclassifyItem: (id, newType) => ipcRenderer.invoke('reclassify-item', id, newType),
+
   // 获取分类规则
   getClassificationRules: () => ipcRenderer.invoke('get-classification-rules'),
   
@@ -21,6 +27,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 获取统计
   getStats: () => ipcRenderer.invoke('get-stats'),
+
+  // 导出数据
+  exportData: (format) => ipcRenderer.invoke('export-data', format),
   
   // 窗口控制
   toggleExpand: () => ipcRenderer.send('toggle-expand'),
@@ -30,6 +39,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('expanded', (event, expanded) => callback(expanded));
   },
 
-  // 窗口拖动
-  startDrag: (x, y) => ipcRenderer.send('window-drag', x, y),
+  // 窗口控制
+  toggleExpand: () => ipcRenderer.send('toggle-expand'),
+
+  // 监听展开状态
+  onExpanded: (callback) => {
+    ipcRenderer.on('expanded', (event, expanded) => callback(expanded));
+  },
 });

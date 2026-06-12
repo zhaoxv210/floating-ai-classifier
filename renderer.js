@@ -6,6 +6,20 @@ const API = window.electronAPI;
 let currentTab = 'all';
 let allItems = [];
 let searchQuery = '';
+let selectMode = false;
+let selectedIds = new Set();
+
+// 类型列表（用于重新分类下拉菜单）
+const TYPE_LIST = {
+  tasks:       { icon: '📋', label: '任务' },
+  ideas:       { icon: '💡', label: '想法' },
+  credentials: { icon: '🔑', label: '账号' },
+  notes:       { icon: '📝', label: '备忘' },
+  bookmarks:   { icon: '🔗', label: '链接' },
+  journal:     { icon: '📔', label: '日记' },
+  reading:     { icon: '📚', label: '待读' },
+  quotes:      { icon: '📜', label: '语录' },
+};
 
 // ===== DOM引用 =====
 const inputField = document.getElementById('inputField');
@@ -18,37 +32,12 @@ const contentArea = document.getElementById('contentArea');
 const feedbackBadge = document.getElementById('feedbackBadge');
 const notification = document.getElementById('notification');
 const dragHandle = document.getElementById('dragHandle');
+const selectModeBtn = document.getElementById('selectModeBtn');
+const batchBar = document.getElementById('batchBar');
+const selectedCountEl = document.getElementById('selectedCount');
 
 // ===== 窗口控制 =====
-
-// 拖动（带节流）
-let isDragging = false;
-let dragStart = { x: 0, y: 0 };
-let dragThrottle = false;
-
-dragHandle.addEventListener('mousedown', (e) => {
-  isDragging = true;
-  dragStart = { x: e.screenX, y: e.screenY };
-  e.preventDefault();
-});
-
-document.addEventListener('mousemove', (e) => {
-  if (!isDragging || dragThrottle) return;
-  dragThrottle = true;
-  requestAnimationFrame(() => {
-    const offsetX = e.screenX - dragStart.x;
-    const offsetY = e.screenY - dragStart.y;
-    if (Math.abs(offsetX) > 2 || Math.abs(offsetY) > 2) {
-      API.startDrag(offsetX, offsetY);
-      dragStart = { x: e.screenX, y: e.screenY };
-    }
-    dragThrottle = false;
-  });
-});
-
-document.addEventListener('mouseup', () => {
-  isDragging = false;
-});
+// 拖动由 CSS -webkit-app-region: drag 原生处理
 
 // 展开/收缩
 expandBtn.addEventListener('click', () => {
@@ -259,14 +248,24 @@ function renderCard(item) {
     : (item.category || '');
 
   return `
-    <div class="item-card" data-id="${item.id}" data-type="${item.type}">
+    <div class="item-card ${selectMode ? 'select-mode' : ''} ${selectedIds.has(item.id) ? 'selected' : ''}" data-id="${item.id}" data-type="${item.type}">
+      ${selectMode ? `<span class="select-checkbox ${selectedIds.has(item.id) ? 'checked' : ''}" data-action="select" data-id="${item.id}"></span>` : ''}
       <button class="delete-btn" data-action="delete" data-id="${item.id}">✕</button>
+      <button class="edit-btn" data-action="edit" data-id="${item.id}" title="编辑">✎</button>
       <div class="card-header">
         <div class="card-category-badge" style="background: ${item.color}18; color: ${item.color}">
           <span class="icon">${item.icon}</span>
           ${categoryLabel}
+          <span class="reclassify-trigger" data-action="reclassify" data-id="${item.id}" title="重新分类">↕</span>
         </div>
         <div class="card-time">${timeStr}</div>
+      </div>
+      <div class="reclassify-dropdown hidden" data-dropdown-id="${item.id}">
+        ${Object.entries(TYPE_LIST).map(([key, info]) => `
+          <button class="reclassify-option ${key === item.type ? 'current' : ''}" data-action="reclassify-to" data-id="${item.id}" data-type="${key}">
+            ${info.icon} ${info.label}
+          </button>
+        `).join('')}
       </div>
       <div class="card-text ${textDoneClass}">
         ${item.type === 'tasks' ? `
@@ -321,8 +320,8 @@ function renderCredentialExtra(item) {
     html += `
       <div class="credential-row">
         <span class="credential-label">📧 邮箱</span>
-        <span class="credential-value" data-copy="${p.email}">${escapeHtml(p.email)}</span>
-        <button class="credential-copy-btn" data-action="copy" data-value="${p.email}">复制</button>
+        <span class="credential-value" data-copy="${escapeAttr(p.email)}">${escapeHtml(p.email)}</span>
+        <button class="credential-copy-btn" data-action="copy" data-value="${escapeAttr(p.email)}">复制</button>
       </div>
     `;
   }
@@ -330,8 +329,8 @@ function renderCredentialExtra(item) {
     html += `
       <div class="credential-row">
         <span class="credential-label">👤 账号</span>
-        <span class="credential-value" data-copy="${p.username}">${escapeHtml(p.username)}</span>
-        <button class="credential-copy-btn" data-action="copy" data-value="${p.username}">复制</button>
+        <span class="credential-value" data-copy="${escapeAttr(p.username)}">${escapeHtml(p.username)}</span>
+        <button class="credential-copy-btn" data-action="copy" data-value="${escapeAttr(p.username)}">复制</button>
       </div>
     `;
   }
@@ -339,8 +338,8 @@ function renderCredentialExtra(item) {
     html += `
       <div class="credential-row">
         <span class="credential-label">🔑 密码</span>
-        <span class="credential-value masked" data-action="toggle-mask" data-password="${p.password}">${escapeHtml(p.password)}</span>
-        <button class="credential-copy-btn" data-action="copy" data-value="${p.password}">复制</button>
+        <span class="credential-value masked" data-action="toggle-mask" data-password="${escapeAttr(p.password)}">${escapeHtml(p.password)}</span>
+        <button class="credential-copy-btn" data-action="copy" data-value="${escapeAttr(p.password)}">复制</button>
       </div>
     `;
   }
@@ -348,7 +347,7 @@ function renderCredentialExtra(item) {
     html += `
       <div class="credential-row">
         <span class="credential-label">🔗 网址</span>
-        <span class="credential-value" style="color:#4A90D9;filter:none" data-action="open-url">${p.url}</span>
+        <span class="credential-value" style="color:#4A90D9;filter:none" data-action="open-url" data-url="${escapeAttr(p.url)}">${escapeHtml(p.url)}</span>
       </div>
     `;
   }
@@ -361,7 +360,7 @@ function renderCredentialExtra(item) {
 function renderBookmarkExtra(item) {
   if (!item.urls || item.urls.length === 0) return '';
   return item.urls.map(url => `
-    <div class="link-url" data-action="open-url" data-url="${url}">
+    <div class="link-url" data-action="open-url" data-url="${escapeAttr(url)}">
       🔗 ${escapeHtml(url)}
     </div>
   `).join('');
@@ -457,18 +456,16 @@ function bindCardEvents(items) {
   contentArea.querySelectorAll('[data-action="open-url"]').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
-      const url = el.dataset.url || el.textContent.trim();
-      window.open(url, '_blank');
+      const url = el.dataset.url || el.textContent.replace(/[^\x00-\x7F]/g, '').trim();
+      if (url) window.open(url, '_blank');
     });
   });
 
-  // 密码掩码切换
+  // 密码掩码切换（点击切换，兼容触屏）
   contentArea.querySelectorAll('[data-action="toggle-mask"]').forEach(el => {
-    el.addEventListener('mouseenter', () => {
-      el.classList.remove('masked');
-    });
-    el.addEventListener('mouseleave', () => {
-      el.classList.add('masked');
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      el.classList.toggle('masked');
     });
   });
 
@@ -480,7 +477,8 @@ function bindCardEvents(items) {
       const item = items.find(i => i.id === id);
       if (!item) return;
       
-      const note = prompt('添加延伸想法:');
+      // 使用内联输入框替代 prompt()
+      const note = await showInlineInput(el, '添加延伸想法:');
       if (note && note.trim()) {
         const notes = item.notes || [];
         notes.push(note.trim());
@@ -489,6 +487,256 @@ function bindCardEvents(items) {
         showNotification('💡 想法已延伸');
       }
     });
+  });
+
+  // 重新分类 - 打开下拉菜单
+  contentArea.querySelectorAll('[data-action="reclassify"]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = el.dataset.id;
+      const dropdown = contentArea.querySelector(`[data-dropdown-id="${id}"]`);
+      if (!dropdown) return;
+      // 关闭其他下拉菜单
+      contentArea.querySelectorAll('.reclassify-dropdown:not(.hidden)').forEach(d => {
+        if (d !== dropdown) d.classList.add('hidden');
+      });
+      dropdown.classList.toggle('hidden');
+    });
+  });
+
+  // 重新分类 - 选择新类型
+  contentArea.querySelectorAll('[data-action="reclassify-to"]').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = el.dataset.id;
+      const newType = el.dataset.type;
+      try {
+        await API.reclassifyItem(id, newType);
+        showNotification('🔄 已重新分类');
+        loadAllData();
+      } catch {
+        showNotification('⚠️ 重新分类失败');
+      }
+    });
+  });
+
+  // 编辑条目
+  contentArea.querySelectorAll('[data-action="edit"]').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = el.dataset.id;
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+
+      const card = el.closest('.item-card');
+      const textEl = card.querySelector('.card-text');
+      if (!textEl || textEl.querySelector('.edit-input')) return;
+
+      // 保存原始内容用于取消
+      const originalHtml = textEl.innerHTML;
+      const originalText = item.text;
+
+      // 替换为编辑输入框
+      const input = document.createElement('textarea');
+      input.className = 'edit-input';
+      input.value = originalText;
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'edit-save-btn';
+      saveBtn.textContent = '保存';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'edit-cancel-btn';
+      cancelBtn.textContent = '取消';
+
+      const editWrap = document.createElement('div');
+      editWrap.className = 'edit-wrap';
+      editWrap.appendChild(input);
+      editWrap.appendChild(saveBtn);
+      editWrap.appendChild(cancelBtn);
+
+      textEl.innerHTML = '';
+      textEl.appendChild(editWrap);
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+
+      const finishEdit = async (save) => {
+        if (save) {
+          const newText = input.value.trim();
+          if (newText && newText !== originalText) {
+            await API.updateItem(id, { text: newText });
+            showNotification('✏️ 已更新');
+          }
+        }
+        loadAllData();
+      };
+
+      saveBtn.addEventListener('click', (ev) => { ev.stopPropagation(); finishEdit(true); });
+      cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); finishEdit(false); });
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && !ev.shiftKey) { ev.stopPropagation(); ev.preventDefault(); finishEdit(true); }
+        if (ev.key === 'Escape') { ev.stopPropagation(); finishEdit(false); }
+      });
+    });
+  });
+
+  // 多选 - 勾选条目
+  contentArea.querySelectorAll('[data-action="select"]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = el.dataset.id;
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      updateSelectedCount();
+      renderCards();
+    });
+  });
+}
+
+// ===== 多选模式控制 =====
+
+selectModeBtn.addEventListener('click', () => {
+  selectMode = !selectMode;
+  if (!selectMode) {
+    selectedIds.clear();
+    batchBar.classList.add('hidden');
+  }
+  selectModeBtn.textContent = selectMode ? '☑' : '☐';
+  selectModeBtn.classList.toggle('active', selectMode);
+  renderCards();
+});
+
+// 批量操作栏事件
+batchBar.querySelectorAll('[data-batch]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const action = btn.dataset.batch;
+    if (action === 'select-all') {
+      // 全选当前可见条目
+      let items = allItems;
+      if (currentTab !== 'all') {
+        items = items.filter(item => item.type === currentTab);
+      }
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        items = items.filter(item =>
+          item.text.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q)
+        );
+      }
+      items.forEach(item => selectedIds.add(item.id));
+      updateSelectedCount();
+      renderCards();
+    } else if (action === 'delete') {
+      if (selectedIds.size === 0) return;
+      try {
+        await API.batchDelete([...selectedIds]);
+        showNotification(`🗑️ 已删除 ${selectedIds.size} 条`);
+        selectedIds.clear();
+        exitSelectMode();
+        loadAllData();
+      } catch {
+        showNotification('⚠️ 批量删除失败');
+      }
+    } else if (action === 'cancel') {
+      exitSelectMode();
+    }
+  });
+});
+
+function updateSelectedCount() {
+  selectedCountEl.textContent = selectedIds.size;
+  if (selectMode && selectedIds.size > 0) {
+    batchBar.classList.remove('hidden');
+  } else {
+    batchBar.classList.add('hidden');
+  }
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedIds.clear();
+  selectModeBtn.textContent = '☐';
+  selectModeBtn.classList.remove('active');
+  batchBar.classList.add('hidden');
+  renderCards();
+}
+
+// ===== 数据导出 =====
+
+document.querySelectorAll('[data-export]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const format = btn.dataset.export;
+    try {
+      const content = await API.exportData(format);
+      if (!content) {
+        showNotification('📭 没有数据可导出');
+        return;
+      }
+      // 创建下载
+      const ext = format === 'csv' ? 'csv' : format === 'markdown' ? 'md' : 'json';
+      const mime = format === 'csv' ? 'text/csv' : format === 'markdown' ? 'text/markdown' : 'application/json';
+      const blob = new Blob(['\uFEFF' + content], { type: mime + ';charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `分类数据_${new Date().toISOString().slice(0, 10)}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showNotification(`📥 已导出 ${format.toUpperCase()} 文件`);
+    } catch {
+      showNotification('⚠️ 导出失败');
+    }
+  });
+});
+
+// ===== 内联输入（替代 prompt） =====
+
+function showInlineInput(anchorEl, placeholder) {
+  return new Promise((resolve) => {
+    // 移除已有的内联输入
+    const existing = document.querySelector('.inline-input-wrap');
+    if (existing) existing.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'inline-input-wrap';
+    wrap.innerHTML = `
+      <input type="text" class="inline-input" placeholder="${escapeAttr(placeholder)}">
+      <button class="inline-input-ok">确定</button>
+      <button class="inline-input-cancel">取消</button>
+    `;
+
+    const input = wrap.querySelector('.inline-input');
+    const okBtn = wrap.querySelector('.inline-input-ok');
+    const cancelBtn = wrap.querySelector('.inline-input-cancel');
+
+    const finish = (value) => {
+      wrap.remove();
+      resolve(value);
+    };
+
+    okBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      finish(input.value || null);
+    });
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      finish(null);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.stopPropagation();
+        finish(input.value || null);
+      } else if (e.key === 'Escape') {
+        e.stopPropagation();
+        finish(null);
+      }
+    });
+
+    anchorEl.parentElement.insertBefore(wrap, anchorEl.nextSibling);
+    input.focus();
   });
 }
 
@@ -531,10 +779,53 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function escapeAttr(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // ===== 初始化 =====
 
 // 焦点自动在输入框
 inputField.focus();
+
+// 点击空白处关闭重新分类下拉菜单
+document.addEventListener('click', () => {
+  document.querySelectorAll('.reclassify-dropdown:not(.hidden)').forEach(d => {
+    d.classList.add('hidden');
+  });
+});
+
+// 快捷键
+document.addEventListener('keydown', (e) => {
+  // Ctrl+N: 聚焦输入框
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault();
+    inputField.focus();
+    inputField.select();
+  }
+  // Ctrl+F: 聚焦搜索框（仅在面板展开时）
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    if (!expandPanel.classList.contains('hidden')) {
+      e.preventDefault();
+      searchField.focus();
+      searchField.select();
+    }
+  }
+  // Esc: 关闭面板 / 退出多选 / 取消搜索
+  if (e.key === 'Escape') {
+    if (selectMode) {
+      exitSelectMode();
+    } else if (document.activeElement === searchField) {
+      searchField.value = '';
+      searchQuery = '';
+      searchField.blur();
+      renderCards();
+    } else if (!expandPanel.classList.contains('hidden')) {
+      API.toggleExpand();
+    }
+  }
+});
 
 // 隐藏默认加载未展开时的面板
 if (!expandPanel.classList.contains('hidden')) {
@@ -542,5 +833,4 @@ if (!expandPanel.classList.contains('hidden')) {
 }
 
 console.log('🚀 AI浮动分类窗已启动');
-console.log('💡 快捷键: Ctrl+Shift+Space (显示/隐藏)');
-console.log('📝 输入内容后回车，AI自动分类');
+console.log('💡 快捷键: Ctrl+Shift+Space (显示/隐藏) | Ctrl+N (输入) | Ctrl+F (搜索) | Esc (关闭)');

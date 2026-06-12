@@ -11,7 +11,7 @@ const DEFAULT_RULES = {
     keywords: [
       '做', '完成', '实现', '开发', '写', '创建', '构建', '修复', '改', '处理',
       '安排', '计划', '准备', '提交', '审核', '测试', '部署', '优化', '重构',
-      '需要', '必须', '应该', '要', '得做', 'todo', '待办', '任务', '完成',
+      '需要', '必须', '应该', '要', '得做', 'todo', '待办', '任务',
     ],
     patterns: [
       /我要(做|写|实现|开发|完成|创建|改|修|处理)/i,
@@ -391,8 +391,63 @@ class Classifier {
     return extra;
   }
 
+  /**
+   * 重新分类 - 将条目切换到指定类型
+   */
+  reclassify(item, newType) {
+    const rule = this.rules[newType];
+    if (!rule) return item;
+
+    item.type = newType;
+    item.category = rule.label;
+    item.color = rule.color;
+    item.icon = rule.icon;
+    item.extra = this.extractExtra(item.text, newType);
+
+    // 重置类型特定属性
+    delete item.status;
+    delete item.priority;
+    delete item.expanded;
+    delete item.notes;
+    delete item.masked;
+    delete item.parsed;
+    delete item.urls;
+    delete item.mood;
+    delete item.progress;
+    delete item.author;
+
+    switch (newType) {
+      case 'tasks':
+        item.status = 'pending';
+        item.priority = this.detectPriority(item.text);
+        break;
+      case 'ideas':
+        item.expanded = false;
+        item.notes = [];
+        break;
+      case 'credentials':
+        item.masked = true;
+        item.parsed = this.parseCredentials(item.text);
+        break;
+      case 'bookmarks':
+        item.urls = item.text.match(/https?:\/\/[^\s]+/g) || [];
+        break;
+      case 'journal':
+        item.mood = this.detectMood(item.text);
+        break;
+      case 'reading':
+        item.progress = 0;
+        break;
+      case 'quotes':
+        item.author = '';
+        break;
+    }
+
+    return item;
+  }
+
   generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
   }
 }
 
