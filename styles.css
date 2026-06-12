@@ -196,24 +196,19 @@ body {
 /* ===== 分类选项卡 ===== */
 .tab-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
-  padding: 10px 12px 6px;
-  overflow-x: auto;
+  padding: 8px 12px 4px;
   flex-shrink: 0;
-  -webkit-overflow-scrolling: touch;
-}
-
-.tab-bar::-webkit-scrollbar {
-  height: 0;
 }
 
 .tab-btn {
   flex-shrink: 0;
-  padding: 5px 12px;
+  padding: 3px 10px;
   border: none;
   background: rgba(0, 0, 0, 0.04);
-  border-radius: 14px;
-  font-size: 12px;
+  border-radius: 12px;
+  font-size: 11px;
   color: #666;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -306,6 +301,7 @@ body {
   transition: all 0.2s ease;
   animation: cardIn 0.3s ease;
   position: relative;
+  overflow: visible;
 }
 
 @keyframes cardIn {
@@ -634,20 +630,16 @@ body {
 }
 
 .reclassify-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  z-index: 100;
+  z-index: 99999;
   background: white;
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  padding: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  max-width: 260px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  max-width: 220px;
   animation: dropdownIn 0.15s ease;
 }
 

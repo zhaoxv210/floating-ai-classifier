@@ -86,6 +86,15 @@ app.whenReady().then(() => {
     return classifier.getRules();
   });
 
+  // IPC: 重新分类
+  ipcMain.handle('reclassify-item', (event, id, newType) => {
+    const item = store.getById(id);
+    if (!item) return null;
+    classifier.reclassify(item, newType);
+    store.save();
+    return store.getAll();
+  });
+
   ipcMain.handle('get-stats', () => store.getStats());
 
   globalShortcut.register('CmdOrCtrl+Shift+Space', () => {

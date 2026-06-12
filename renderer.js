@@ -254,13 +254,6 @@ function renderCard(item) {
         </div>
         <div class="card-time">${timeStr}</div>
       </div>
-      <div class="reclassify-dropdown hidden" data-dropdown-id="${item.id}">
-        ${Object.entries(TYPE_LIST).map(([key, info]) => `
-          <button class="reclassify-option ${key === item.type ? 'current' : ''}" data-action="reclassify-to" data-id="${item.id}" data-type="${key}">
-            ${info.icon} ${info.label}
-          </button>
-        `).join('')}
-      </div>
       <div class="card-text ${textDoneClass}">
         ${item.type === 'tasks' ? `
           <span class="card-checkbox ${statusClass}" data-action="toggle-task" data-id="${item.id}"></span>
@@ -483,34 +476,71 @@ function bindCardEvents(items) {
     });
   });
 
-  // 重新分类 - 打开下拉菜单
+  // 重新分类 - 打开/关闭共享下拉菜单
   contentArea.querySelectorAll('[data-action="reclassify"]').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = el.dataset.id;
-      const dropdown = contentArea.querySelector(`[data-dropdown-id="${id}"]`);
-      if (!dropdown) return;
-      // 关闭其他下拉菜单
-      contentArea.querySelectorAll('.reclassify-dropdown:not(.hidden)').forEach(d => {
-        if (d !== dropdown) d.classList.add('hidden');
-      });
-      dropdown.classList.toggle('hidden');
-    });
-  });
+      const item = items.find(i => i.id === id);
+      if (!item) return;
 
-  // 重新分类 - 选择新类型
-  contentArea.querySelectorAll('[data-action="reclassify-to"]').forEach(el => {
-    el.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const id = el.dataset.id;
-      const newType = el.dataset.type;
-      try {
-        await API.reclassifyItem(id, newType);
-        showNotification('🔄 已重新分类');
-        loadAllData();
-      } catch {
-        showNotification('⚠️ 重新分类失败');
+      let dropdown = document.getElementById('sharedReclassifyDropdown');
+      if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.id = 'sharedReclassifyDropdown';
+        dropdown.className = 'reclassify-dropdown hidden';
+        document.body.appendChild(dropdown);
       }
+
+      const isOpen = !dropdown.classList.contains('hidden');
+      if (isOpen) {
+        dropdown.classList.add('hidden');
+        return;
+      }
+
+      // 填充选项
+      dropdown.innerHTML = Object.entries(TYPE_LIST).map(([key, info]) => `
+        <button class="reclassify-option ${key === item.type ? 'current' : ''}" data-action="reclassify-to" data-id="${id}" data-type="${key}">
+          ${info.icon} ${info.label}
+        </button>
+      `).join('');
+
+      // 定位到按钮正下方（空间不够则向上）
+      const rect = el.getBoundingClientRect();
+      const dropdownHeight = 120; // 预估高度
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+
+      dropdown.style.position = 'fixed';
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        // 向上弹出
+        dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        dropdown.style.top = 'auto';
+        dropdown.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
+      } else {
+        // 向下弹出
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.bottom = 'auto';
+        dropdown.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
+      }
+      dropdown.classList.remove('hidden');
+
+      // 绑定选项点击（一次性，因为内容每次重建）
+      dropdown.querySelectorAll('[data-action="reclassify-to"]').forEach(opt => {
+        opt.addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          const optId = opt.dataset.id;
+          const newType = opt.dataset.type;
+          dropdown.classList.add('hidden');
+          try {
+            await API.reclassifyItem(optId, newType);
+            showNotification('🔄 已重新分类');
+            loadAllData();
+          } catch {
+            showNotification('⚠️ 重新分类失败');
+          }
+        });
+      });
     });
   });
 
