@@ -49,6 +49,16 @@ function createWindow() {
       mainWindow.webContents.send('expanded', false);
     }
   });
+
+  // 设置面板独立展开/收起（不触发数据面板）
+  ipcMain.on('resize-settings', () => {
+    const bounds = mainWindow.getBounds();
+    if (bounds.height <= 64) {
+      mainWindow.setBounds({ width: 400, height: 320 });
+    } else if (!expanded) {
+      mainWindow.setBounds({ width: 400, height: 60 });
+    }
+  });
 }
 
 app.whenReady().then(() => {

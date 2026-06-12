@@ -47,11 +47,8 @@ expandBtn.addEventListener('click', () => {
   API.toggleExpand();
 });
 
-let isExpanded = false;
-
 // 展开状态监听
 API.onExpanded((expanded) => {
-  isExpanded = expanded;
   if (expanded) {
     expandPanel.classList.remove('hidden');
     expandBtn.textContent = '📂';
@@ -61,8 +58,6 @@ API.onExpanded((expanded) => {
     expandPanel.classList.add('hidden');
     expandBtn.textContent = '📁';
     expandBtn.title = '展开面板';
-    // 收起时自动关闭设置面板
-    settingsPanel.classList.add('hidden');
   }
 });
 
@@ -74,16 +69,10 @@ quitBtn.addEventListener('click', () => {
 // ===== 设置面板 =====
 
 settingsBtn.addEventListener('click', async () => {
-  // 紧凑模式下自动展开面板，给设置面板腾出空间
-  if (!isExpanded) {
-    API.toggleExpand();
-    for (let i = 0; i < 20; i++) {
-      await new Promise(r => setTimeout(r, 100));
-      if (isExpanded) break;
-    }
-  }
+  const opening = settingsPanel.classList.contains('hidden');
+  API.resizeSettings();
   settingsPanel.classList.toggle('hidden');
-  if (!settingsPanel.classList.contains('hidden')) {
+  if (opening) {
     const config = await API.getOllamaConfig();
     ollamaEnabled.checked = config.enabled;
     ollamaHost.value = config.host;
@@ -91,8 +80,10 @@ settingsBtn.addEventListener('click', async () => {
   }
 });
 
-settingsCloseBtn.addEventListener('click', () => {
+settingsCloseBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
   settingsPanel.classList.add('hidden');
+  API.resizeSettings();
 });
 
 // 点击面板外关闭
@@ -102,6 +93,7 @@ document.addEventListener('click', (e) => {
       e.target !== settingsBtn &&
       !settingsBtn.contains(e.target)) {
     settingsPanel.classList.add('hidden');
+    API.resizeSettings();
   }
 });
 

@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 窗口控制
   toggleExpand: () => ipcRenderer.send('toggle-expand'),
+  resizeSettings: () => ipcRenderer.send('resize-settings'),
   
   // 监听展开状态
   onExpanded: (callback) => {
