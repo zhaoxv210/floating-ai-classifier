@@ -23,6 +23,14 @@ const TYPE_LIST = {
 const inputField = document.getElementById('inputField');
 const expandBtn = document.getElementById('expandBtn');
 const quitBtn = document.getElementById('quitBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+const ollamaEnabled = document.getElementById('ollamaEnabled');
+const ollamaHost = document.getElementById('ollamaHost');
+const ollamaModel = document.getElementById('ollamaModel');
+const testOllamaBtn = document.getElementById('testOllamaBtn');
+const ollamaTestResult = document.getElementById('ollamaTestResult');
 const expandPanel = document.getElementById('expandPanel');
 const tabBar = document.getElementById('tabBar');
 const searchField = document.getElementById('searchField');
@@ -56,6 +64,71 @@ API.onExpanded((expanded) => {
 // 退出
 quitBtn.addEventListener('click', () => {
   window.close();
+});
+
+// ===== 设置面板 =====
+
+settingsBtn.addEventListener('click', async () => {
+  settingsPanel.classList.toggle('hidden');
+  if (!settingsPanel.classList.contains('hidden')) {
+    const config = await API.getOllamaConfig();
+    ollamaEnabled.checked = config.enabled;
+    ollamaHost.value = config.host;
+    ollamaModel.value = config.model;
+  }
+});
+
+settingsCloseBtn.addEventListener('click', () => {
+  settingsPanel.classList.add('hidden');
+});
+
+// 点击面板外关闭
+document.addEventListener('click', (e) => {
+  if (!settingsPanel.classList.contains('hidden') &&
+      !settingsPanel.contains(e.target) &&
+      e.target !== settingsBtn &&
+      !settingsBtn.contains(e.target)) {
+    settingsPanel.classList.add('hidden');
+  }
+});
+
+// 保存 Ollama 配置到后端
+async function saveOllamaConfig() {
+  const config = {
+    enabled: ollamaEnabled.checked,
+    host: ollamaHost.value.trim(),
+    model: ollamaModel.value.trim(),
+  };
+  await API.setOllamaConfig(config);
+}
+
+ollamaEnabled.addEventListener('change', saveOllamaConfig);
+ollamaHost.addEventListener('change', saveOllamaConfig);
+ollamaModel.addEventListener('change', saveOllamaConfig);
+
+// 测试连接
+testOllamaBtn.addEventListener('click', async () => {
+  const config = {
+    host: ollamaHost.value.trim(),
+    model: ollamaModel.value.trim(),
+  };
+  testOllamaBtn.disabled = true;
+  testOllamaBtn.textContent = '⏳ 测试中...';
+  ollamaTestResult.textContent = '';
+  ollamaTestResult.className = 'settings-test-result';
+
+  const res = await API.testOllamaConnection(config);
+
+  testOllamaBtn.disabled = false;
+  testOllamaBtn.textContent = '测试连接';
+
+  if (res.ok) {
+    ollamaTestResult.textContent = '✅ 连接成功';
+    ollamaTestResult.className = 'settings-test-result success';
+  } else {
+    ollamaTestResult.textContent = `❌ 连接失败: ${res.error || '服务不可用'}`;
+    ollamaTestResult.className = 'settings-test-result error';
+  }
 });
 
 // ===== 主输入逻辑 =====

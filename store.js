@@ -12,8 +12,10 @@ class Store {
   constructor() {
     this.dataDir = path.join(os.homedir(), '.floating-classifier');
     this.dataFile = path.join(this.dataDir, 'data.json');
+    this.ollamaConfigFile = path.join(this.dataDir, 'ollama-config.json');
     this.canEncrypt = safeStorage ? safeStorage.isEncryptionAvailable() : false;
     this.data = this.load();
+    this.ollamaConfig = this.loadOllamaConfig();
   }
 
   load() {
@@ -22,7 +24,8 @@ class Store {
         fs.mkdirSync(this.dataDir, { recursive: true });
       }
       if (fs.existsSync(this.dataFile)) {
-        const raw = fs.readFileSync(this.dataFile, 'utf-8');
+        let raw = fs.readFileSync(this.dataFile, 'utf-8');
+        if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
         const data = JSON.parse(raw);
         this._decryptItems(data.items || []);
         return data;
@@ -218,6 +221,40 @@ class Store {
   clear() {
     this.data.items = [];
     this.save();
+  }
+
+  // ===== Ollama 配置管理 =====
+
+  loadOllamaConfig() {
+    try {
+      if (fs.existsSync(this.ollamaConfigFile)) {
+        let raw = fs.readFileSync(this.ollamaConfigFile, 'utf-8');
+        // 去除 UTF-8 BOM
+        if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      console.error('加载 Ollama 配置失败:', e);
+    }
+    return { host: 'http://127.0.0.1:11434', model: 'llama3.2:latest', enabled: false };
+  }
+
+  saveOllamaConfig() {
+    try {
+      fs.writeFileSync(this.ollamaConfigFile, JSON.stringify(this.ollamaConfig, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('保存 Ollama 配置失败:', e);
+    }
+  }
+
+  getOllamaConfig() {
+    return { ...this.ollamaConfig };
+  }
+
+  setOllamaConfig(config) {
+    this.ollamaConfig = { ...this.ollamaConfig, ...config };
+    this.saveOllamaConfig();
+    return this.getOllamaConfig();
   }
 }
 

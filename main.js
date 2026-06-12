@@ -56,9 +56,12 @@ app.whenReady().then(() => {
   classifier = new Classifier(store);
   createWindow();
 
+  // 将 store 中的 Ollama 配置同步到 classifier
+  classifier.setOllamaConfig(store.getOllamaConfig());
+
   ipcMain.handle('classify-and-save', async (event, text) => {
     if (!text || text.trim() === '') return null;
-    const result = classifier.classify(text.trim());
+    const result = await classifier.classify(text.trim());
     store.add(result);
     store.save();
     return result;
@@ -96,6 +99,34 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('get-stats', () => store.getStats());
+
+  // IPC: Ollama 配置
+  ipcMain.handle('get-ollama-config', () => store.getOllamaConfig());
+
+  ipcMain.handle('set-ollama-config', (event, config) => {
+    const updated = store.setOllamaConfig(config);
+    classifier.setOllamaConfig(updated);
+    return updated;
+  });
+
+  ipcMain.handle('test-ollama-connection', async (event, config) => {
+    const { host, model } = config;
+    const url = `${host.replace(/\/+$/, '')}/api/generate`;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt: 'hi', stream: false }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      return { ok: res.ok, status: res.status };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
 
   globalShortcut.register('CmdOrCtrl+Shift+Space', () => {
     if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();

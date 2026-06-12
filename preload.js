@@ -39,11 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('expanded', (event, expanded) => callback(expanded));
   },
 
-  // 窗口控制
-  toggleExpand: () => ipcRenderer.send('toggle-expand'),
-
-  // 监听展开状态
-  onExpanded: (callback) => {
-    ipcRenderer.on('expanded', (event, expanded) => callback(expanded));
-  },
+  // Ollama 配置
+  getOllamaConfig: () => ipcRenderer.invoke('get-ollama-config'),
+  setOllamaConfig: (config) => ipcRenderer.invoke('set-ollama-config', config),
+  testOllamaConnection: (config) => ipcRenderer.invoke('test-ollama-connection', config),
 });

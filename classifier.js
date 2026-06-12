@@ -156,12 +156,18 @@ class Classifier {
     this.store = store;
     this.rulesFile = path.join(store.dataDir, 'classification-rules.json');
     this.rules = this.loadRules();
+    this.ollamaConfig = store.getOllamaConfig();
+  }
+
+  setOllamaConfig(config) {
+    this.ollamaConfig = { ...this.ollamaConfig, ...config };
   }
 
   loadRules() {
     try {
       if (fs.existsSync(this.rulesFile)) {
-        const data = fs.readFileSync(this.rulesFile, 'utf-8');
+        let data = fs.readFileSync(this.rulesFile, 'utf-8');
+        if (data.charCodeAt(0) === 0xFEFF) data = data.slice(1);
         return JSON.parse(data, reviveRule);
       }
     } catch (e) {
@@ -196,10 +202,72 @@ class Classifier {
   }
 
   /**
+   * Ollama AI 分类
+   */
+  async classifyWithOllama(text) {
+    if (!this.ollamaConfig.enabled) return null;
+
+    const { host, model } = this.ollamaConfig;
+    const url = `${host.replace(/\/+$/, '')}/api/generate`;
+
+    const prompt = `你是一个文本分类助手。将用户输入的文本分类到以下类别之一：
+
+tasks: 📋 任务 — 需要执行/完成的事情，如"要做xxx"、"帮我xxx"、"安排会议"
+ideas: 💡 想法 — 创意、灵感、建议，如"我想到一个点子"、"也许可以xx"
+credentials: 🔑 账号 — 账号密码、登录信息，如"邮箱xxx密码xxx"
+notes: 📝 备忘 — 需要记住的信息，如"别忘了xx"、"提醒xx"
+bookmarks: 🔗 链接 — 网址、推荐的文章/视频
+journal: 📔 日记 — 个人经历、感受、日常记录，如"今天xxx了"、"心情xxx"
+reading: 📚 待读 — 想看的书/文章/资料
+quotes: 📜 语录 — 名言、引用、某人说过的话
+
+要求：
+- 只返回 JSON：{"type": "类型key", "reason": "简短中文原因"}
+- 如果是个人经历、感受、日常描述 → journal
+- 如果是需要做的事 → tasks
+- 不确定则 "notes"
+- 不要返回其他内容
+
+输入文本：${text}`;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt, stream: false, temperature: 0.1 }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      const responseText = data.response || '';
+
+      let parsed;
+      const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      }
+
+      if (parsed && parsed.type && this.rules[parsed.type]) {
+        return parsed.type;
+      }
+      return null;
+    } catch (e) {
+      console.error('Ollama 分类失败:', e.message);
+      return null;
+    }
+  }
+
+  /**
    * 分类主逻辑
    * 支持强制分类：输入 #类型名 内容 来强制指定分类
    */
-  classify(text) {
+  async classify(text) {
     // 0. 检查强制分类前缀 (#类型名)
     const forceMatch = text.match(/^#([a-zA-Z\u4e00-\u9fa5]+)[\s:：]+/);
     let forceType = null;
@@ -224,6 +292,14 @@ class Classifier {
       // 如果强制类型有效，直接返回
       if (this.rules[forceType]) {
         return this.buildResult(cleanText, forceType, 100, 'forced');
+      }
+    }
+
+    // 如果启用了 Ollama，优先使用 AI 分类
+    if (this.ollamaConfig.enabled) {
+      const ollamaType = await this.classifyWithOllama(cleanText);
+      if (ollamaType) {
+        return this.buildResult(cleanText, ollamaType, 95, 'ollama');
       }
     }
 
@@ -293,7 +369,7 @@ class Classifier {
     }
 
     // 3. 构建结果对象
-    return this.buildResult(cleanText, bestType, bestScore, 'auto');
+    return this.buildResult(cleanText, bestType, bestScore, this.ollamaConfig.enabled ? 'ollama_fallback' : 'auto');
   }
 
   /**
