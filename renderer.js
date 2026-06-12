@@ -6,8 +6,6 @@ const API = window.electronAPI;
 let currentTab = 'all';
 let allItems = [];
 let searchQuery = '';
-let selectMode = false;
-let selectedIds = new Set();
 
 // 类型列表（用于重新分类下拉菜单）
 const TYPE_LIST = {
@@ -32,9 +30,6 @@ const contentArea = document.getElementById('contentArea');
 const feedbackBadge = document.getElementById('feedbackBadge');
 const notification = document.getElementById('notification');
 const dragHandle = document.getElementById('dragHandle');
-const selectModeBtn = document.getElementById('selectModeBtn');
-const batchBar = document.getElementById('batchBar');
-const selectedCountEl = document.getElementById('selectedCount');
 
 // ===== 窗口控制 =====
 // 拖动由 CSS -webkit-app-region: drag 原生处理
@@ -248,8 +243,7 @@ function renderCard(item) {
     : (item.category || '');
 
   return `
-    <div class="item-card ${selectMode ? 'select-mode' : ''} ${selectedIds.has(item.id) ? 'selected' : ''}" data-id="${item.id}" data-type="${item.type}">
-      ${selectMode ? `<span class="select-checkbox ${selectedIds.has(item.id) ? 'checked' : ''}" data-action="select" data-id="${item.id}"></span>` : ''}
+    <div class="item-card" data-id="${item.id}" data-type="${item.type}">
       <button class="delete-btn" data-action="delete" data-id="${item.id}">✕</button>
       <button class="edit-btn" data-action="edit" data-id="${item.id}" title="编辑">✎</button>
       <div class="card-header">
@@ -579,89 +573,6 @@ function bindCardEvents(items) {
       });
     });
   });
-
-  // 多选 - 勾选条目
-  contentArea.querySelectorAll('[data-action="select"]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = el.dataset.id;
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
-      } else {
-        selectedIds.add(id);
-      }
-      updateSelectedCount();
-      renderCards();
-    });
-  });
-}
-
-// ===== 多选模式控制 =====
-
-selectModeBtn.addEventListener('click', () => {
-  selectMode = !selectMode;
-  if (!selectMode) {
-    selectedIds.clear();
-    batchBar.classList.add('hidden');
-  }
-  selectModeBtn.textContent = selectMode ? '☑' : '☐';
-  selectModeBtn.classList.toggle('active', selectMode);
-  renderCards();
-});
-
-// 批量操作栏事件
-batchBar.querySelectorAll('[data-batch]').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const action = btn.dataset.batch;
-    if (action === 'select-all') {
-      // 全选当前可见条目
-      let items = allItems;
-      if (currentTab !== 'all') {
-        items = items.filter(item => item.type === currentTab);
-      }
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        items = items.filter(item =>
-          item.text.toLowerCase().includes(q) ||
-          item.category.toLowerCase().includes(q)
-        );
-      }
-      items.forEach(item => selectedIds.add(item.id));
-      updateSelectedCount();
-      renderCards();
-    } else if (action === 'delete') {
-      if (selectedIds.size === 0) return;
-      try {
-        await API.batchDelete([...selectedIds]);
-        showNotification(`🗑️ 已删除 ${selectedIds.size} 条`);
-        selectedIds.clear();
-        exitSelectMode();
-        loadAllData();
-      } catch {
-        showNotification('⚠️ 批量删除失败');
-      }
-    } else if (action === 'cancel') {
-      exitSelectMode();
-    }
-  });
-});
-
-function updateSelectedCount() {
-  selectedCountEl.textContent = selectedIds.size;
-  if (selectMode && selectedIds.size > 0) {
-    batchBar.classList.remove('hidden');
-  } else {
-    batchBar.classList.add('hidden');
-  }
-}
-
-function exitSelectMode() {
-  selectMode = false;
-  selectedIds.clear();
-  selectModeBtn.textContent = '☐';
-  selectModeBtn.classList.remove('active');
-  batchBar.classList.add('hidden');
-  renderCards();
 }
 
 // ===== 数据导出 =====
@@ -812,11 +723,9 @@ document.addEventListener('keydown', (e) => {
       searchField.select();
     }
   }
-  // Esc: 关闭面板 / 退出多选 / 取消搜索
+  // Esc: 关闭面板 / 取消搜索
   if (e.key === 'Escape') {
-    if (selectMode) {
-      exitSelectMode();
-    } else if (document.activeElement === searchField) {
+    if (document.activeElement === searchField) {
       searchField.value = '';
       searchQuery = '';
       searchField.blur();
