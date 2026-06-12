@@ -3,6 +3,9 @@ const path = require('path');
 const Store = require('./store');
 const Classifier = require('./classifier');
 
+// 禁用硬件加速，解决 Windows 透明窗口 DWM 蓝色条问题
+app.disableHardwareAcceleration();
+
 let mainWindow;
 let store;
 let classifier;
