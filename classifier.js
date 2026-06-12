@@ -197,8 +197,36 @@ class Classifier {
 
   /**
    * 分类主逻辑
+   * 支持强制分类：输入 #类型名 内容 来强制指定分类
    */
   classify(text) {
+    // 0. 检查强制分类前缀 (#类型名)
+    const forceMatch = text.match(/^#([a-zA-Z\u4e00-\u9fa5]+)[\s:：]+/);
+    let forceType = null;
+    let cleanText = text;
+
+    if (forceMatch) {
+      const typeHint = forceMatch[1].toLowerCase();
+      // 类型名映射（支持中文和英文）
+      const typeMap = {
+        '任务': 'tasks', 'task': 'tasks', 'todo': 'tasks', '待办': 'tasks',
+        '想法': 'ideas', 'idea': 'ideas', '创意': 'ideas',
+        '账号': 'credentials', 'account': 'credentials', '密码': 'credentials', 'credential': 'credentials',
+        '备忘': 'notes', 'note': 'notes', '笔记': 'notes', '备忘录': 'notes',
+        '链接': 'bookmarks', 'link': 'bookmarks', 'bookmark': 'bookmarks', '书签': 'bookmarks',
+        '日记': 'journal', 'journal': 'journal', '心情': 'journal',
+        '待读': 'reading', 'reading': 'reading', '阅读': 'reading',
+        '语录': 'quotes', 'quote': 'quotes', '名言': 'quotes',
+      };
+      forceType = typeMap[typeHint] || typeHint;
+      cleanText = text.slice(forceMatch[0].length).trim();
+
+      // 如果强制类型有效，直接返回
+      if (this.rules[forceType]) {
+        return this.buildResult(cleanText, forceType, 100, 'forced');
+      }
+    }
+
     // 1. 计算每个分类的匹配分数
     const scores = {};
     const matches = {};
@@ -209,7 +237,7 @@ class Classifier {
 
       // 关键词匹配
       for (const keyword of rule.keywords) {
-        if (text.includes(keyword)) {
+        if (cleanText.includes(keyword)) {
           score += 2;
           matchedItems.push({ type: 'keyword', value: keyword });
         }
@@ -217,7 +245,7 @@ class Classifier {
 
       // 正则匹配
       for (const pattern of rule.patterns) {
-        const match = text.match(pattern);
+        const match = cleanText.match(pattern);
         if (match) {
           score += 5;
           matchedItems.push({ type: 'pattern', value: match[0] });
@@ -225,15 +253,15 @@ class Classifier {
       }
 
       // URL检测 - 如果包含URL且该类型支持提取URL
-      if (rule.extractUrls && /https?:\/\/[^\s]+/.test(text)) {
+      if (rule.extractUrls && /https?:\/\/[^\s]+/.test(cleanText)) {
         score += 3;
-        matchedItems.push({ type: 'url', value: text.match(/https?:\/\/[^\s]+/)[0] });
+        matchedItems.push({ type: 'url', value: cleanText.match(/https?:\/\/[^\s]+/)[0] });
       }
 
       // 账号密码对检测
       if (rule.extractCredentials) {
-        const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
-        const hasPwd = /密码[：:]\s*\S+/.test(text) || /password[：:]\s*\S+/i.test(text);
+        const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(cleanText);
+        const hasPwd = /密码[：:]\s*\S+/.test(cleanText) || /password[：:]\s*\S+/i.test(cleanText);
         if (hasEmail && hasPwd) {
           score += 10; // 强匹配
           matchedItems.push({ type: 'credential_pair' });
@@ -241,9 +269,8 @@ class Classifier {
       }
 
       // 检测是否像待办事项（以动词开头且简短）
-      if (type === 'tasks' && text.length < 50) {
-        const firstChar = text.charAt(0);
-        if (/[我请需].*[做写创实].*/.test(text) && !/[。！？；]/.test(text)) {
+      if (type === 'tasks' && cleanText.length < 50) {
+        if (/[我请需].*[做写创实].*/.test(cleanText) && !/[。！？；]/.test(cleanText)) {
           score += 1;
         }
       }
@@ -266,22 +293,29 @@ class Classifier {
     }
 
     // 3. 构建结果对象
-    const rule = this.rules[bestType];
+    return this.buildResult(cleanText, bestType, bestScore, 'auto');
+  }
+
+  /**
+   * 构建分类结果对象
+   */
+  buildResult(text, type, score, source) {
+    const rule = this.rules[type];
     const result = {
       id: this.generateId(),
       text: text,
-      type: bestType,
+      type: type,
       category: rule.label,
       color: rule.color,
       icon: rule.icon,
       timestamp: new Date().toISOString(),
-      score: bestScore,
-      // 提取额外数据
-      extra: this.extractExtra(text, bestType),
+      score: score,
+      source: source, // 'auto' | 'forced'
+      extra: this.extractExtra(text, type),
     };
 
     // 添加类型特定的默认属性
-    switch (bestType) {
+    switch (type) {
       case 'tasks':
         result.status = 'pending';
         result.priority = this.detectPriority(text);

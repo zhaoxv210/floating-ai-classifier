@@ -575,34 +575,6 @@ function bindCardEvents(items) {
   });
 }
 
-// ===== 数据导出 =====
-
-document.querySelectorAll('[data-export]').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const format = btn.dataset.export;
-    try {
-      const content = await API.exportData(format);
-      if (!content) {
-        showNotification('📭 没有数据可导出');
-        return;
-      }
-      // 创建下载
-      const ext = format === 'csv' ? 'csv' : format === 'markdown' ? 'md' : 'json';
-      const mime = format === 'csv' ? 'text/csv' : format === 'markdown' ? 'text/markdown' : 'application/json';
-      const blob = new Blob(['\uFEFF' + content], { type: mime + ';charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `分类数据_${new Date().toISOString().slice(0, 10)}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showNotification(`📥 已导出 ${format.toUpperCase()} 文件`);
-    } catch {
-      showNotification('⚠️ 导出失败');
-    }
-  });
-});
-
 // ===== 内联输入（替代 prompt） =====
 
 function showInlineInput(anchorEl, placeholder) {

@@ -795,33 +795,6 @@ body {
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* ===== 底部工具栏 ===== */
-.tool-bar {
-  display: flex;
-  gap: 4px;
-  padding: 6px 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
-  flex-shrink: 0;
-  justify-content: flex-end;
-}
-
-.tool-btn {
-  padding: 3px 8px;
-  border: none;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 6px;
-  font-size: 10px;
-  color: #999;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-
-.tool-btn:hover {
-  background: rgba(0, 0, 0, 0.07);
-  color: #666;
-}
-
 /* ===== 通知浮层 ===== */
 .notification {
   position: fixed;
@@ -1067,20 +1040,6 @@ body {
 
   .stats-bar {
     border-top-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .tool-bar {
-    border-top-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .tool-btn {
-    background: rgba(255, 255, 255, 0.04);
-    color: #666;
-  }
-
-  .tool-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #999;
   }
 
   .edit-input {
