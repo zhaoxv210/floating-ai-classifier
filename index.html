@@ -7,73 +7,19 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- 紧凑输入栏 -->
-  <div id="compact-bar" class="compact-bar">
-    <div class="drag-handle" id="dragHandle">⋮⋮</div>
-    <input type="text" id="inputField" class="input-field"
-           placeholder="输入内容，AI自动分类... (#类型名 可强制分类)">
-    <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
-    <button id="expandBtn" class="icon-btn" title="展开面板">📁</button>
-    <button id="quitBtn" class="icon-btn quit-btn" title="退出">✕</button>
-    <div id="feedbackBadge" class="feedback-badge"></div>
+  <div id="compactBar" class="compact-bar">
+    <input type="text" id="inputField" class="input-field" placeholder="写点什么...">
+    <div id="inputHint" class="input-hint"></div>
+    <div id="expandIndicator" class="expand-indicator">≡</div>
   </div>
 
-  <!-- 展开面板 -->
   <div id="expandPanel" class="expand-panel hidden">
-    <!-- 分类选项卡导航 -->
-    <div id="tabBar" class="tab-bar">
-      <button class="tab-btn active" data-tab="all">全部</button>
+    <div id="filterBar" class="filter-bar">
+      <span class="filter-label">全部</span>
+      <span class="filter-arrow">›</span>
     </div>
-
-    <!-- 快速搜索 -->
-    <div id="searchBox" class="search-box">
-      <input type="text" id="searchField" placeholder="🔍 搜索所有条目...">
-    </div>
-
-    <!-- 内容区域 -->
-    <div id="contentArea" class="content-area">
-      <!-- 动态渲染由 renderer.js 处理 -->
-    </div>
+    <div id="contentArea" class="content-area"></div>
   </div>
-
-  <!-- 设置面板 -->
-  <div id="settingsPanel" class="settings-panel hidden">
-    <div class="settings-header">
-      <span>⚙️ 设置</span>
-      <button id="settingsCloseBtn" class="icon-btn" title="关闭">✕</button>
-    </div>
-    <div class="settings-body">
-      <div class="settings-section">
-        <div class="settings-section-title">🤖 Ollama 本地 AI 配置</div>
-        <div class="settings-row">
-          <label class="settings-label">启用 Ollama</label>
-          <label class="toggle-switch">
-            <input type="checkbox" id="ollamaEnabled">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="settings-row">
-          <label class="settings-label">服务地址</label>
-          <input type="text" id="ollamaHost" class="settings-input" placeholder="http://127.0.0.1:11434">
-        </div>
-        <div class="settings-row">
-          <label class="settings-label">模型名称</label>
-          <input type="text" id="ollamaModel" class="settings-input" placeholder="qwen2.5:7b">
-        </div>
-        <div class="settings-row">
-          <button id="testOllamaBtn" class="settings-btn">测试连接</button>
-          <span id="ollamaTestResult" class="settings-test-result"></span>
-        </div>
-        <div class="settings-hint">
-          启用后，输入内容将优先通过本地 Ollama AI 模型进行智能分类，
-          更准确地理解语义。确保 Ollama 服务已启动。
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 分类通知浮层 -->
-  <div id="notification" class="notification hidden"></div>
 </body>
 <script src="renderer.js"></script>
 </html>

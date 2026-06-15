@@ -1,825 +1,289 @@
-// =============================================================
-// 渲染器 - 处理所有UI交互和渲染
-// =============================================================
-
 const API = window.electronAPI;
-let currentTab = 'all';
 let allItems = [];
-let searchQuery = '';
+let currentFilter = null;
 
-// 类型列表（用于重新分类下拉菜单）
 const TYPE_LIST = {
-  tasks:       { icon: '📋', label: '任务' },
-  ideas:       { icon: '💡', label: '想法' },
-  credentials: { icon: '🔑', label: '账号' },
-  notes:       { icon: '📝', label: '备忘' },
-  bookmarks:   { icon: '🔗', label: '链接' },
-  journal:     { icon: '📔', label: '日记' },
-  reading:     { icon: '📚', label: '待读' },
-  quotes:      { icon: '📜', label: '语录' },
+  all:          { icon: '',    label: '全部' },
+  tasks:        { icon: '', label: '任务' },
+  ideas:        { icon: '',   label: '想法' },
+  credentials:  { icon: '', label: '账号' },
+  notes:        { icon: '',   label: '备忘' },
+  bookmarks:    { icon: '',  label: '链接' },
+  journal:      { icon: '',  label: '日记' },
+  reading:      { icon: '', label: '待读' },
+  quotes:       { icon: '',  label: '语录' },
 };
 
-// ===== DOM引用 =====
 const inputField = document.getElementById('inputField');
-const expandBtn = document.getElementById('expandBtn');
-const quitBtn = document.getElementById('quitBtn');
-const settingsBtn = document.getElementById('settingsBtn');
-const settingsPanel = document.getElementById('settingsPanel');
-const settingsCloseBtn = document.getElementById('settingsCloseBtn');
-const ollamaEnabled = document.getElementById('ollamaEnabled');
-const ollamaHost = document.getElementById('ollamaHost');
-const ollamaModel = document.getElementById('ollamaModel');
-const testOllamaBtn = document.getElementById('testOllamaBtn');
-const ollamaTestResult = document.getElementById('ollamaTestResult');
+const compactBar = document.getElementById('compactBar');
+const inputHint = document.getElementById('inputHint');
+const expandIndicator = document.getElementById('expandIndicator');
 const expandPanel = document.getElementById('expandPanel');
-const tabBar = document.getElementById('tabBar');
-const searchField = document.getElementById('searchField');
+const filterBar = document.getElementById('filterBar');
 const contentArea = document.getElementById('contentArea');
-const feedbackBadge = document.getElementById('feedbackBadge');
-const notification = document.getElementById('notification');
-const dragHandle = document.getElementById('dragHandle');
 
-// ===== 窗口控制 =====
-// 拖动由 CSS -webkit-app-region: drag 原生处理
-
-// 展开/收缩
-expandBtn.addEventListener('click', () => {
+compactBar.addEventListener('dblclick', () => {
   API.toggleExpand();
 });
 
-// 展开状态监听
+expandIndicator.addEventListener('click', () => {
+  API.toggleExpand();
+});
+
 API.onExpanded((expanded) => {
   if (expanded) {
     expandPanel.classList.remove('hidden');
-    expandBtn.textContent = '📂';
-    expandBtn.title = '收起面板';
     loadAllData();
   } else {
     expandPanel.classList.add('hidden');
-    expandBtn.textContent = '📁';
-    expandBtn.title = '展开面板';
   }
 });
-
-// 退出
-quitBtn.addEventListener('click', () => {
-  window.close();
-});
-
-// ===== 设置面板 =====
-
-settingsBtn.addEventListener('click', async () => {
-  const opening = settingsPanel.classList.contains('hidden');
-  API.resizeSettings();
-  settingsPanel.classList.toggle('hidden');
-  if (opening) {
-    const config = await API.getOllamaConfig();
-    ollamaEnabled.checked = config.enabled;
-    ollamaHost.value = config.host;
-    ollamaModel.value = config.model;
-  }
-});
-
-settingsCloseBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  settingsPanel.classList.add('hidden');
-  API.resizeSettings();
-});
-
-// 点击面板外关闭
-document.addEventListener('click', (e) => {
-  if (!settingsPanel.classList.contains('hidden') &&
-      !settingsPanel.contains(e.target) &&
-      e.target !== settingsBtn &&
-      !settingsBtn.contains(e.target)) {
-    settingsPanel.classList.add('hidden');
-    API.resizeSettings();
-  }
-});
-
-// 保存 Ollama 配置到后端
-async function saveOllamaConfig() {
-  const config = {
-    enabled: ollamaEnabled.checked,
-    host: ollamaHost.value.trim(),
-    model: ollamaModel.value.trim(),
-  };
-  await API.setOllamaConfig(config);
-}
-
-ollamaEnabled.addEventListener('change', saveOllamaConfig);
-ollamaHost.addEventListener('change', saveOllamaConfig);
-ollamaModel.addEventListener('change', saveOllamaConfig);
-
-// 测试连接
-testOllamaBtn.addEventListener('click', async () => {
-  const config = {
-    host: ollamaHost.value.trim(),
-    model: ollamaModel.value.trim(),
-  };
-  testOllamaBtn.disabled = true;
-  testOllamaBtn.textContent = '⏳ 测试中...';
-  ollamaTestResult.textContent = '';
-  ollamaTestResult.className = 'settings-test-result';
-
-  const res = await API.testOllamaConnection(config);
-
-  testOllamaBtn.disabled = false;
-  testOllamaBtn.textContent = '测试连接';
-
-  if (res.ok) {
-    ollamaTestResult.textContent = '✅ 连接成功';
-    ollamaTestResult.className = 'settings-test-result success';
-  } else {
-    ollamaTestResult.textContent = `❌ 连接失败: ${res.error || '服务不可用'}`;
-    ollamaTestResult.className = 'settings-test-result error';
-  }
-});
-
-// ===== 主输入逻辑 =====
 
 inputField.addEventListener('keydown', async (e) => {
   if (e.key === 'Enter') {
     const text = inputField.value.trim();
     if (!text) return;
-    
     inputField.disabled = true;
-    inputField.placeholder = '🤔 AI分析中...';
-    
+    const orig = inputField.placeholder;
+    inputField.placeholder = '...';
     try {
       const result = await API.classifyAndSave(text);
       if (result) {
-        showFeedback(result);
+        inputHint.textContent = result.icon;
+        inputHint.classList.add('show');
         inputField.value = '';
-        // 如果面板是展开的，刷新数据
-        if (!expandPanel.classList.contains('hidden')) {
-          loadAllData();
-        }
+        if (!expandPanel.classList.contains('hidden')) loadAllData();
+        setTimeout(() => inputHint.classList.remove('show'), 1200);
       }
-    } catch (err) {
-      console.error('分类失败:', err);
-      showNotification('⚠️ 分类失败，请重试');
+    } catch (e) {
+      console.error(e);
     } finally {
       inputField.disabled = false;
-      inputField.placeholder = '输入内容，AI自动分类...';
+      inputField.placeholder = orig;
       inputField.focus();
     }
   }
 });
 
-// ===== 反馈显示 =====
-
-let feedbackTimer = null;
-
-function showFeedback(result) {
-  // Badge显示
-  feedbackBadge.textContent = result.icon;
-  feedbackBadge.style.background = result.color;
-  feedbackBadge.classList.add('show');
-  
-  // 通知显示
-  showNotification(`${result.icon} 已归类 → ${result.category}`);
-  
-  // 清除旧定时器
-  if (feedbackTimer) clearTimeout(feedbackTimer);
-  
-  // 3秒后隐藏Badge
-  feedbackTimer = setTimeout(() => {
-    feedbackBadge.classList.remove('show');
-    feedbackBadge.style.background = 'transparent';
-    feedbackBadge.textContent = '';
-  }, 3000);
-}
-
-function showNotification(text) {
-  notification.textContent = text;
-  notification.classList.remove('hidden');
-  
-  setTimeout(() => {
-    notification.classList.add('hidden');
-  }, 2000);
-}
-
-// ===== 数据加载与渲染 =====
-
 async function loadAllData() {
-  try {
-    allItems = await API.getAllData();
-    renderTabs();
-    renderCards();
-  } catch (err) {
-    console.error('加载数据失败:', err);
-  }
+  allItems = await API.getAllData();
+  renderFilter();
+  renderCards();
 }
 
-function renderTabs() {
-  // 统计各类型
-  const typeCount = {};
-  for (const item of allItems) {
-    if (!typeCount[item.type]) {
-      typeCount[item.type] = { count: 0, icon: item.icon, label: item.category };
-    }
-    typeCount[item.type].count++;
-  }
-
-  // 构建标签HTML
-  let html = `<button class="tab-btn ${currentTab === 'all' ? 'active' : ''}" data-tab="all">
-    全部 <span class="tab-count">${allItems.length}</span>
-  </button>`;
-
-  const typeOrder = ['tasks', 'ideas', 'credentials', 'notes', 'bookmarks', 'journal', 'reading', 'quotes'];
-  for (const type of typeOrder) {
-    if (typeCount[type]) {
-      const { count, icon, label } = typeCount[type];
-      const labelText = (label && icon && label.startsWith(icon)) ? label.slice(icon.length).trim() : (label || '');
-      html += `<button class="tab-btn ${currentTab === type ? 'active' : ''}" data-tab="${type}">
-        ${icon} ${labelText} <span class="tab-count">${count}</span>
-      </button>`;
-    }
-  }
-
-  tabBar.innerHTML = html;
-
-  // 绑定点击事件
-  tabBar.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentTab = btn.dataset.tab;
-      renderTabs();
-      renderCards();
-    });
-  });
+function getFilterLabel() {
+  if (!currentFilter || currentFilter === 'all') return '全部';
+  const info = TYPE_LIST[currentFilter];
+  return info ? info.label : '全部';
 }
 
-function renderCards() {
-  // 过滤
-  let items = allItems;
-  if (currentTab !== 'all') {
-    items = items.filter(item => item.type === currentTab);
-  }
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    items = items.filter(item => 
-      item.text.toLowerCase().includes(q) ||
-      item.category.toLowerCase().includes(q) ||
-      (item.extra?.tags && item.extra.tags.some(t => t.toLowerCase().includes(q)))
-    );
-  }
-
-  if (items.length === 0) {
-    contentArea.innerHTML = `
-      <div class="empty-state">
-        <div class="icon">📭</div>
-        <div class="text">还没有记录，输入内容试试吧</div>
-      </div>
-    `;
-    return;
-  }
-
-  contentArea.innerHTML = items.map(item => renderCard(item)).join('');
-
-  // 绑定卡片事件
-  bindCardEvents(items);
-}
-
-// ===== 卡片渲染 =====
-
-function renderCard(item) {
-  const timeStr = formatTime(item.timestamp);
-  const statusClass = item.status === 'done' ? 'checked' : '';
-  const textDoneClass = item.status === 'done' ? 'done' : '';
-
-  let extraContent = '';
-
-  // 不同类型特殊渲染
-  switch (item.type) {
-    case 'tasks':
-      extraContent = renderTaskExtra(item);
-      break;
-    case 'ideas':
-      extraContent = renderIdeaExtra(item);
-      break;
-    case 'credentials':
-      extraContent = renderCredentialExtra(item);
-      break;
-    case 'bookmarks':
-      extraContent = renderBookmarkExtra(item);
-      break;
-    case 'journal':
-      extraContent = renderJournalExtra(item);
-      break;
-    case 'reading':
-      extraContent = renderReadingExtra(item);
-      break;
-    case 'quotes':
-      extraContent = renderQuoteExtra(item);
-      break;
-  }
-
-  // 如果 category 字符串以 icon 开头（默认规则中含 emoji），去掉重复的前缀
-  const categoryLabel = (item.category && item.icon && item.category.startsWith(item.icon))
-    ? item.category.slice(item.icon.length).trim()
-    : (item.category || '');
-
-  return `
-    <div class="item-card" data-id="${item.id}" data-type="${item.type}">
-      <button class="delete-btn" data-action="delete" data-id="${item.id}">✕</button>
-      <button class="edit-btn" data-action="edit" data-id="${item.id}" title="编辑">✎</button>
-      <div class="card-header">
-        <div class="card-category-badge" style="background: ${item.color}18; color: ${item.color}">
-          <span class="icon">${item.icon}</span>
-          ${categoryLabel}
-          <span class="reclassify-trigger" data-action="reclassify" data-id="${item.id}" title="重新分类">↕</span>
-        </div>
-        <div class="card-time">${timeStr}</div>
-      </div>
-      <div class="card-text ${textDoneClass}">
-        ${item.type === 'tasks' ? `
-          <span class="card-checkbox ${statusClass}" data-action="toggle-task" data-id="${item.id}"></span>
-        ` : ''}
-        ${item.type !== 'quotes' ? escapeHtml(item.text) : ''}
-        ${item.priority ? `<span class="priority-badge ${item.priority}">● ${item.priority === 'high' ? '高' : item.priority === 'medium' ? '中' : '低'}</span>` : ''}
-      </div>
-      ${item.extra && item.extra.tags && item.extra.tags.length > 0 ? `
-        <div class="card-tags">
-          ${item.extra.tags.map(t => `<span class="tag-badge">#${escapeHtml(t)}</span>`).join('')}
-        </div>
-      ` : ''}
-      ${extraContent}
-    </div>
+function renderFilter() {
+  filterBar.innerHTML = `
+    <span class="filter-label">${getFilterLabel()}</span>
+    <span class="filter-arrow">▾</span>
   `;
 }
 
-// 任务附加
-function renderTaskExtra(item) {
-  let html = '<div class="action-bar">';
-  if (item.status === 'pending') {
-    html += `<button class="action-btn" data-action="toggle-task" data-id="${item.id}">✅ 标记完成</button>`;
-  } else {
-    html += `<button class="action-btn" data-action="toggle-task" data-id="${item.id}">↩️ 重新打开</button>`;
-  }
-  html += `</div>`;
-  return html;
-}
+filterBar.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const existing = document.querySelector('.filter-dropdown');
+  if (existing) { existing.remove(); return; }
 
-// 想法附加
-function renderIdeaExtra(item) {
-  let html = '';
-  if (item.notes && item.notes.length > 0) {
-    html += '<div class="idea-notes">';
-    for (const note of item.notes) {
-      html += `<div class="idea-note-item">${escapeHtml(note)}</div>`;
-    }
-    html += '</div>';
-  }
-  html += `<button class="idea-expand-btn" data-action="add-idea-note" data-id="${item.id}">+ 添加想法延伸</button>`;
-  return html;
-}
-
-// 账号密码附加
-function renderCredentialExtra(item) {
-  if (!item.parsed) return '';
-  const p = item.parsed;
-  let html = '<div class="credential-display">';
-  
-  if (p.email) {
-    html += `
-      <div class="credential-row">
-        <span class="credential-label">📧 邮箱</span>
-        <span class="credential-value" data-copy="${escapeAttr(p.email)}">${escapeHtml(p.email)}</span>
-        <button class="credential-copy-btn" data-action="copy" data-value="${escapeAttr(p.email)}">复制</button>
-      </div>
-    `;
-  }
-  if (p.username) {
-    html += `
-      <div class="credential-row">
-        <span class="credential-label">👤 账号</span>
-        <span class="credential-value" data-copy="${escapeAttr(p.username)}">${escapeHtml(p.username)}</span>
-        <button class="credential-copy-btn" data-action="copy" data-value="${escapeAttr(p.username)}">复制</button>
-      </div>
-    `;
-  }
-  if (p.password) {
-    html += `
-      <div class="credential-row">
-        <span class="credential-label">🔑 密码</span>
-        <span class="credential-value masked" data-action="toggle-mask" data-password="${escapeAttr(p.password)}">${escapeHtml(p.password)}</span>
-        <button class="credential-copy-btn" data-action="copy" data-value="${escapeAttr(p.password)}">复制</button>
-      </div>
-    `;
-  }
-  if (p.url) {
-    html += `
-      <div class="credential-row">
-        <span class="credential-label">🔗 网址</span>
-        <span class="credential-value" style="color:#4A90D9;filter:none" data-action="open-url" data-url="${escapeAttr(p.url)}">${escapeHtml(p.url)}</span>
-      </div>
-    `;
-  }
-  
-  html += '</div>';
-  return html;
-}
-
-// 书签附加
-function renderBookmarkExtra(item) {
-  if (!item.urls || item.urls.length === 0) return '';
-  return item.urls.map(url => `
-    <div class="link-url" data-action="open-url" data-url="${escapeAttr(url)}">
-      🔗 ${escapeHtml(url)}
-    </div>
+  const dd = document.createElement('div');
+  dd.className = 'filter-dropdown';
+  dd.innerHTML = Object.entries(TYPE_LIST).map(([key, info]) => `
+    <button class="filter-option ${key === (currentFilter || 'all') ? 'active' : ''}" data-type="${key}">
+      ${info.label}
+    </button>
   `).join('');
-}
 
-// 日记附加
-function renderJournalExtra(item) {
-  const moodIcons = {
-    happy: '😊',
-    sad: '😢',
-    tired: '😴',
-    anxious: '😰',
-    calm: '😌',
-    angry: '😠',
-    neutral: '😐',
-  };
-  if (item.mood) {
-    return `<span class="mood-indicator">心情: ${moodIcons[item.mood] || '😐'}</span>`;
+  filterBar.appendChild(dd);
+
+  dd.querySelectorAll('.filter-option').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const type = btn.dataset.type;
+      currentFilter = type === 'all' ? null : type;
+      dd.remove();
+      renderFilter();
+      renderCards();
+    });
+  });
+});
+
+document.addEventListener('click', () => {
+  const dd = document.querySelector('.filter-dropdown');
+  if (dd) dd.remove();
+});
+
+function renderCards() {
+  let items = allItems;
+  if (currentFilter) items = items.filter(i => i.type === currentFilter);
+
+  if (items.length === 0) {
+    contentArea.innerHTML = '<div class="empty-state"><div class="icon">⋯</div><div class="text">还没有记录</div></div>';
+    return;
   }
-  return '';
-}
 
-// 阅读附加
-function renderReadingExtra(item) {
-  if (item.progress !== undefined) {
-    return `<div class="action-bar"><span class="action-btn">进度: ${item.progress}%</span></div>`;
-  }
-  return '';
-}
+  contentArea.innerHTML = items.map(item => {
+    const done = item.status === 'done' ? 'done' : '';
+    return `
+      <div class="item-card" data-id="${item.id}" data-type="${item.type}">
+        <div class="card-context-menu">
+          <button class="context-btn" data-action="edit" title="编辑">✎</button>
+          <button class="context-btn danger" data-action="delete" title="删除">✕</button>
+        </div>
+        <div class="card-icon">${item.icon || ''}</div>
+        <div class="card-body">
+          <div class="card-text ${done}" data-action="click-card">${escapeHtml(item.text)}</div>
+          <div class="card-meta">${formatTime(item.timestamp)}${item.category ? ' · ' + item.category.replace(item.icon || '', '').trim() : ''}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 
-// 语录附加
-function renderQuoteExtra(item) {
-  return '<div class="quote-text">' + escapeHtml(item.text) + '</div>';
+  bindCardEvents(items);
 }
-
-// ===== 事件绑定 =====
 
 function bindCardEvents(items) {
-  // 任务切换 (通过按钮)
-  contentArea.querySelectorAll('[data-action="toggle-task"]').forEach(el => {
+  contentArea.querySelectorAll('[data-action="click-card"]').forEach(el => {
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const id = el.dataset.id;
-      const item = items.find(i => i.id === id);
+      const card = el.closest('.item-card');
+      const item = items.find(i => i.id === card.dataset.id);
       if (!item) return;
-      try {
-        const newStatus = item.status === 'done' ? 'pending' : 'done';
-        await API.updateItem(id, { status: newStatus });
-        loadAllData();
-      } catch {
-        showNotification('⚠️ 操作失败，请重试');
+
+      switch (item.type) {
+        case 'tasks': {
+          const newStatus = item.status === 'done' ? 'pending' : 'done';
+          await API.updateItem(item.id, { status: newStatus });
+          loadAllData();
+          break;
+        }
+        case 'bookmarks': {
+          const urls = item.text.match(/https?:\/\/[^\s]+/g);
+          if (urls) window.open(urls[0], '_blank');
+          break;
+        }
+        case 'credentials': {
+          const pwd = item.parsed?.password;
+          if (pwd) {
+            try {
+              await navigator.clipboard.writeText(pwd);
+            } catch (e) {
+              const ta = document.createElement('textarea');
+              ta.value = pwd;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+          }
+          break;
+        }
       }
     });
   });
 
-  // 删除
   contentArea.querySelectorAll('[data-action="delete"]').forEach(el => {
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const id = el.dataset.id;
-      try {
-        await API.deleteItem(id);
-        showNotification('🗑️ 已删除');
-        loadAllData();
-      } catch {
-        showNotification('⚠️ 删除失败，请重试');
-      }
+      const card = el.closest('.item-card');
+      await API.deleteItem(card.dataset.id);
+      loadAllData();
     });
   });
 
-  // 复制
-  contentArea.querySelectorAll('[data-action="copy"]').forEach(el => {
-    el.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const value = el.dataset.value;
-      try {
-        await navigator.clipboard.writeText(value);
-        showNotification('📋 已复制到剪贴板');
-      } catch {
-        // Fallback
-        const ta = document.createElement('textarea');
-        ta.value = value;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showNotification('📋 已复制到剪贴板');
-      }
-    });
-  });
-
-  // 打开URL
-  contentArea.querySelectorAll('[data-action="open-url"]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const url = el.dataset.url || el.textContent.replace(/[^\x00-\x7F]/g, '').trim();
-      if (url) window.open(url, '_blank');
-    });
-  });
-
-  // 密码掩码切换（点击切换，兼容触屏）
-  contentArea.querySelectorAll('[data-action="toggle-mask"]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      el.classList.toggle('masked');
-    });
-  });
-
-  // 添加想法延伸
-  contentArea.querySelectorAll('[data-action="add-idea-note"]').forEach(el => {
-    el.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const id = el.dataset.id;
-      const item = items.find(i => i.id === id);
-      if (!item) return;
-      
-      // 使用内联输入框替代 prompt()
-      const note = await showInlineInput(el, '添加延伸想法:');
-      if (note && note.trim()) {
-        const notes = item.notes || [];
-        notes.push(note.trim());
-        await API.updateItem(id, { notes });
-        loadAllData();
-        showNotification('💡 想法已延伸');
-      }
-    });
-  });
-
-  // 重新分类 - 打开/关闭共享下拉菜单
-  contentArea.querySelectorAll('[data-action="reclassify"]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = el.dataset.id;
-      const item = items.find(i => i.id === id);
-      if (!item) return;
-
-      let dropdown = document.getElementById('sharedReclassifyDropdown');
-      if (!dropdown) {
-        dropdown = document.createElement('div');
-        dropdown.id = 'sharedReclassifyDropdown';
-        dropdown.className = 'reclassify-dropdown hidden';
-        document.body.appendChild(dropdown);
-      }
-
-      const isOpen = !dropdown.classList.contains('hidden');
-      if (isOpen) {
-        dropdown.classList.add('hidden');
-        return;
-      }
-
-      // 填充选项
-      dropdown.innerHTML = Object.entries(TYPE_LIST).map(([key, info]) => `
-        <button class="reclassify-option ${key === item.type ? 'current' : ''}" data-action="reclassify-to" data-id="${id}" data-type="${key}">
-          ${info.icon} ${info.label}
-        </button>
-      `).join('');
-
-      // 定位到按钮正下方（空间不够则向上）
-      const rect = el.getBoundingClientRect();
-      const dropdownHeight = 120; // 预估高度
-      const spaceBelow = window.innerHeight - rect.bottom - 8;
-      const spaceAbove = rect.top - 8;
-
-      dropdown.style.position = 'fixed';
-      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
-        // 向上弹出
-        dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-        dropdown.style.top = 'auto';
-        dropdown.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
-      } else {
-        // 向下弹出
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.bottom = 'auto';
-        dropdown.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
-      }
-      dropdown.classList.remove('hidden');
-
-      // 绑定选项点击（一次性，因为内容每次重建）
-      dropdown.querySelectorAll('[data-action="reclassify-to"]').forEach(opt => {
-        opt.addEventListener('click', async (ev) => {
-          ev.stopPropagation();
-          const optId = opt.dataset.id;
-          const newType = opt.dataset.type;
-          dropdown.classList.add('hidden');
-          try {
-            await API.reclassifyItem(optId, newType);
-            showNotification('🔄 已重新分类');
-            loadAllData();
-          } catch {
-            showNotification('⚠️ 重新分类失败');
-          }
-        });
-      });
-    });
-  });
-
-  // 编辑条目
   contentArea.querySelectorAll('[data-action="edit"]').forEach(el => {
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const id = el.dataset.id;
-      const item = items.find(i => i.id === id);
+      const card = el.closest('.item-card');
+      const item = items.find(i => i.id === card.dataset.id);
       if (!item) return;
 
-      const card = el.closest('.item-card');
       const textEl = card.querySelector('.card-text');
-      if (!textEl || textEl.querySelector('.edit-input')) return;
+      if (textEl.querySelector('textarea')) return;
 
-      // 保存原始内容用于取消
-      const originalHtml = textEl.innerHTML;
-      const originalText = item.text;
-
-      // 替换为编辑输入框
-      const input = document.createElement('textarea');
-      input.className = 'edit-input';
-      input.value = originalText;
+      const original = item.text;
+      const textarea = document.createElement('textarea');
+      textarea.className = 'edit-input';
+      textarea.value = original;
 
       const saveBtn = document.createElement('button');
-      saveBtn.className = 'edit-save-btn';
+      saveBtn.className = 'edit-btn save';
       saveBtn.textContent = '保存';
-
       const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'edit-cancel-btn';
+      cancelBtn.className = 'edit-btn cancel';
       cancelBtn.textContent = '取消';
 
-      const editWrap = document.createElement('div');
-      editWrap.className = 'edit-wrap';
-      editWrap.appendChild(input);
-      editWrap.appendChild(saveBtn);
-      editWrap.appendChild(cancelBtn);
+      const actions = document.createElement('div');
+      actions.className = 'edit-actions';
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
 
       textEl.innerHTML = '';
-      textEl.appendChild(editWrap);
-      input.focus();
-      input.setSelectionRange(input.value.length, input.value.length);
+      textEl.appendChild(textarea);
+      textEl.appendChild(actions);
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
-      const finishEdit = async (save) => {
+      const finish = async (save) => {
         if (save) {
-          const newText = input.value.trim();
-          if (newText && newText !== originalText) {
-            await API.updateItem(id, { text: newText });
-            showNotification('✏️ 已更新');
+          const v = textarea.value.trim();
+          if (v && v !== original) {
+            await API.updateItem(item.id, { text: v });
           }
         }
         loadAllData();
       };
 
-      saveBtn.addEventListener('click', (ev) => { ev.stopPropagation(); finishEdit(true); });
-      cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); finishEdit(false); });
-      input.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter' && !ev.shiftKey) { ev.stopPropagation(); ev.preventDefault(); finishEdit(true); }
-        if (ev.key === 'Escape') { ev.stopPropagation(); finishEdit(false); }
+      saveBtn.addEventListener('click', (ev) => { ev.stopPropagation(); finish(true); });
+      cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); finish(false); });
+      textarea.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); finish(true); }
+        if (ev.key === 'Escape') { finish(false); }
       });
     });
   });
 }
 
-// ===== 内联输入（替代 prompt） =====
-
-function showInlineInput(anchorEl, placeholder) {
-  return new Promise((resolve) => {
-    // 移除已有的内联输入
-    const existing = document.querySelector('.inline-input-wrap');
-    if (existing) existing.remove();
-
-    const wrap = document.createElement('div');
-    wrap.className = 'inline-input-wrap';
-    wrap.innerHTML = `
-      <input type="text" class="inline-input" placeholder="${escapeAttr(placeholder)}">
-      <button class="inline-input-ok">确定</button>
-      <button class="inline-input-cancel">取消</button>
-    `;
-
-    const input = wrap.querySelector('.inline-input');
-    const okBtn = wrap.querySelector('.inline-input-ok');
-    const cancelBtn = wrap.querySelector('.inline-input-cancel');
-
-    const finish = (value) => {
-      wrap.remove();
-      resolve(value);
-    };
-
-    okBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      finish(input.value || null);
-    });
-    cancelBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      finish(null);
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.stopPropagation();
-        finish(input.value || null);
-      } else if (e.key === 'Escape') {
-        e.stopPropagation();
-        finish(null);
-      }
-    });
-
-    anchorEl.parentElement.insertBefore(wrap, anchorEl.nextSibling);
-    input.focus();
-  });
-}
-
-// ===== 搜索 =====
-
-searchField.addEventListener('input', (e) => {
-  searchQuery = e.target.value.trim();
-  renderCards();
-});
-
-// ===== 工具函数 =====
-
-function formatTime(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  const now = new Date();
-  const diff = now - date;
-  
-  // 今天
-  if (diff < 24 * 60 * 60 * 1000 && date.getDate() === now.getDate()) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  }
-  // 昨天
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth()) {
-    return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  }
-  // 今年
-  if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-  }
-  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
+function formatTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const n = new Date();
+  const diff = n - d;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+  if (d.getDate() === n.getDate() && d.getMonth() === n.getMonth())
+    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  const y = new Date(n);
+  y.setDate(y.getDate() - 1);
+  if (d.getDate() === y.getDate() && d.getMonth() === y.getMonth()) return '昨天';
+  if (d.getFullYear() === n.getFullYear())
+    return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function escapeHtml(str) {
   if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
 }
 
-function escapeAttr(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// ===== 初始化 =====
-
-// 焦点自动在输入框
-inputField.focus();
-
-// 点击空白处关闭重新分类下拉菜单
-document.addEventListener('click', () => {
-  document.querySelectorAll('.reclassify-dropdown:not(.hidden)').forEach(d => {
-    d.classList.add('hidden');
-  });
-});
-
-// 快捷键
 document.addEventListener('keydown', (e) => {
-  // Ctrl+N: 聚焦输入框
   if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
     e.preventDefault();
     inputField.focus();
     inputField.select();
   }
-  // Ctrl+F: 聚焦搜索框（仅在面板展开时）
-  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-    if (!expandPanel.classList.contains('hidden')) {
-      e.preventDefault();
-      searchField.focus();
-      searchField.select();
-    }
-  }
-  // Esc: 关闭面板 / 取消搜索
-  if (e.key === 'Escape') {
-    if (document.activeElement === searchField) {
-      searchField.value = '';
-      searchQuery = '';
-      searchField.blur();
-      renderCards();
-    } else if (!expandPanel.classList.contains('hidden')) {
-      API.toggleExpand();
-    }
+  if (e.key === 'Escape' && !expandPanel.classList.contains('hidden')) {
+    API.toggleExpand();
   }
 });
 
-// 隐藏默认加载未展开时的面板
+inputField.focus();
+
 if (!expandPanel.classList.contains('hidden')) {
   loadAllData();
 }
-
-console.log('🚀 AI浮动分类窗已启动');
-console.log('💡 快捷键: Ctrl+Shift+Space (显示/隐藏) | Ctrl+N (输入) | Ctrl+F (搜索) | Esc (关闭)');

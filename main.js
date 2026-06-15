@@ -3,7 +3,6 @@ const path = require('path');
 const Store = require('./store');
 const Classifier = require('./classifier');
 
-// 禁用硬件加速，解决 Windows 透明窗口 DWM 蓝色条问题
 app.disableHardwareAcceleration();
 
 let mainWindow;
@@ -37,27 +36,15 @@ function createWindow() {
   mainWindow.loadFile('index.html');
   mainWindow.setIgnoreMouseEvents(false);
 
-  // 展开/收缩
   let expanded = false;
   ipcMain.on('toggle-expand', () => {
     expanded = !expanded;
     if (expanded) {
       mainWindow.setBounds({ width: 400, height: 500 });
-      mainWindow.webContents.send('expanded', true);
     } else {
       mainWindow.setBounds({ width: 400, height: 60 });
-      mainWindow.webContents.send('expanded', false);
     }
-  });
-
-  // 设置面板独立展开/收起（不触发数据面板）
-  ipcMain.on('resize-settings', () => {
-    const bounds = mainWindow.getBounds();
-    if (bounds.height <= 64) {
-      mainWindow.setBounds({ width: 400, height: 320 });
-    } else if (!expanded) {
-      mainWindow.setBounds({ width: 400, height: 60 });
-    }
+    mainWindow.webContents.send('expanded', expanded);
   });
 }
 
@@ -65,9 +52,6 @@ app.whenReady().then(() => {
   store = new Store();
   classifier = new Classifier(store);
   createWindow();
-
-  // 将 store 中的 Ollama 配置同步到 classifier
-  classifier.setOllamaConfig(store.getOllamaConfig());
 
   ipcMain.handle('classify-and-save', async (event, text) => {
     if (!text || text.trim() === '') return null;
@@ -89,53 +73,6 @@ app.whenReady().then(() => {
     store.delete(id);
     store.save();
     return store.getAll();
-  });
-
-  ipcMain.handle('get-classification-rules', () => classifier.getRules());
-
-  ipcMain.handle('update-classification-rules', (event, rules) => {
-    classifier.updateRules(rules);
-    classifier.saveRules();
-    return classifier.getRules();
-  });
-
-  // IPC: 重新分类
-  ipcMain.handle('reclassify-item', (event, id, newType) => {
-    const item = store.getById(id);
-    if (!item) return null;
-    classifier.reclassify(item, newType);
-    store.save();
-    return store.getAll();
-  });
-
-  ipcMain.handle('get-stats', () => store.getStats());
-
-  // IPC: Ollama 配置
-  ipcMain.handle('get-ollama-config', () => store.getOllamaConfig());
-
-  ipcMain.handle('set-ollama-config', (event, config) => {
-    const updated = store.setOllamaConfig(config);
-    classifier.setOllamaConfig(updated);
-    return updated;
-  });
-
-  ipcMain.handle('test-ollama-connection', async (event, config) => {
-    const { host, model } = config;
-    const url = `${host.replace(/\/+$/, '')}/api/generate`;
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt: 'hi', stream: false }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      return { ok: res.ok, status: res.status };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
   });
 
   globalShortcut.register('CmdOrCtrl+Shift+Space', () => {

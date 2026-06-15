@@ -156,7 +156,8 @@ class Classifier {
     this.store = store;
     this.rulesFile = path.join(store.dataDir, 'classification-rules.json');
     this.rules = this.loadRules();
-    this.ollamaConfig = store.getOllamaConfig();
+    const cfg = store.getOllamaConfig();
+    this.ollamaConfig = { ...cfg, enabled: false };
   }
 
   setOllamaConfig(config) {
