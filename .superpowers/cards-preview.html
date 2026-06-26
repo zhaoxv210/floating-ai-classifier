@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f1a; color: #e0e0e0; font-family: system-ui, sans-serif; padding: 40px; }
+h2 { text-align: center; margin-bottom: 8px; font-size: 24px; }
+.subtitle { text-align: center; color: #888; margin-bottom: 32px; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 800px; margin: 0 auto; }
+.card { background: #1a1a2e; border-radius: 16px; padding: 20px; border: 1px solid #2a2a3e; transition: transform .2s, box-shadow .2s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.card h3 { margin-bottom: 12px; font-size: 16px; }
+.card p { color: #888; font-size: 13px; margin-top: 12px; }
+
+/* Task */
+.task-card { background: #1a1a2e; border-radius: 12px; padding: 16px; font-size: 14px; }
+.task-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.task-checkbox { width: 18px; height: 18px; border: 2px solid #4ecdc4; border-radius: 4px; flex-shrink: 0; }
+.task-title { font-weight: 600; color: #fff; }
+.task-priority { font-size: 12px; color: #888; }
+.task-badge { background: #4ecdc4; color: #1a1a2e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: auto; }
+.task-bar { height: 3px; background: #333; border-radius: 2px; }
+.task-bar-fill { width: 40%; height: 100%; background: #4ecdc4; border-radius: 2px; }
+
+/* Account */
+.account-card { background: #1a1a2e; border-radius: 12px; padding: 16px; font-size: 14px; }
+.account-row { display: flex; align-items: center; gap: 10px; }
+.account-icon { font-size: 20px; }
+.account-info { flex: 1; }
+.account-site { color: #aaa; font-size: 12px; margin-bottom: 2px; }
+.account-pwd { font-family: monospace; letter-spacing: 2px; color: #ffd700; }
+.account-reveal { background: #2a2a2a; padding: 4px 8px; border-radius: 6px; font-size: 11px; color: #aaa; cursor: pointer; }
+
+/* Diary */
+.diary-card { background: #f5e6c8; border-radius: 4px; padding: 16px; font-size: 13px; color: #3a3a3a; font-family: Georgia, serif; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.diary-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.diary-date { font-weight: 600; }
+.diary-body { line-height: 1.6; }
+.diary-footer { margin-top: 12px; font-size: 11px; color: #888; border-top: 1px dashed #ccc; padding-top: 8px; text-align: right; }
+
+/* Idea */
+.idea-card { background: #1a1a2e; border-radius: 12px; padding: 16px; font-size: 14px; position: relative; overflow: hidden; }
+.idea-glow { font-size: 32px; position: absolute; top: -5px; right: 10px; opacity: 0.3; }
+.idea-title { font-weight: 600; color: #ffd700; margin-bottom: 4px; }
+.idea-desc { font-size: 12px; color: #888; }
+.idea-tag { display: inline-block; background: rgba(255,215,0,0.13); color: #ffd700; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-top: 8px; }
+
+/* Link */
+.link-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; font-size: 13px; color: #333; }
+.link-row { display: flex; align-items: center; gap: 10px; }
+.link-favicon { width: 32px; height: 32px; background: #f0f0f0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.link-text { flex: 1; overflow: hidden; }
+.link-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.link-url { font-size: 11px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.link-btn { background: #4ecdc4; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+/* Reading */
+.reading-card { background: #1a1a2e; border-radius: 12px; padding: 16px; font-size: 14px; }
+.reading-row { display: flex; align-items: center; gap: 10px; }
+.reading-icon { font-size: 24px; }
+.reading-info { flex: 1; }
+.reading-name { font-weight: 600; color: #fff; }
+.reading-author { font-size: 12px; color: #888; }
+.reading-progress-text { font-size: 20px; font-weight: 700; color: #4ecdc4; }
+.reading-bar { margin-top: 8px; height: 4px; background: #333; border-radius: 2px; }
+.reading-bar-fill { width: 30%; height: 100%; background: linear-gradient(90deg, #4ecdc4, #44a08d); border-radius: 2px; }
+
+/* Quote */
+.quote-card { background: #2a1a1a; border-left: 4px solid #c9a96e; border-radius: 0 12px 12px 0; padding: 16px; font-size: 14px; color: #e0c9a6; font-style: italic; }
+.quote-mark { font-size: 24px; opacity: 0.5; line-height: 0.5; }
+.quote-body { padding: 0 12px; line-height: 1.6; }
+.quote-author { text-align: right; font-size: 12px; color: #888; margin-top: 8px; }
+
+/* Memo */
+.memo-card { background: #fffde7; border: 1px solid #f0e68c; border-radius: 4px; padding: 16px; font-size: 13px; color: #5a5a3a; box-shadow: 2px 3px 6px rgba(0,0,0,0.15); transform: rotate(-1deg); position: relative; }
+.memo-pin { position: absolute; top: -8px; left: 50%; margin-left: -12px; width: 24px; height: 24px; background: #ffe082; border-radius: 0 0 12px 12px; }
+.memo-title { font-weight: 600; margin-bottom: 4px; }
+.memo-tag { font-size: 11px; color: #888; }
+
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-top: 20px; margin-bottom: 8px; text-align: center; }
+</style>
+</head>
+<body>
+  <h2>🎮 每条记录都是一件"物品"</h2>
+  <p class="subtitle">不再是统一的数据行，每种类型有独特的视觉身份</p>
+
+  <div class="grid">
+
+    <div class="card">
+      <h3>📋 任务</h3>
+      <div class="task-card">
+        <div class="task-row">
+          <div class="task-checkbox"></div>
+          <div class="task-info">
+            <div class="task-title">买牛奶</div>
+            <div class="task-priority">优先级: 普通</div>
+          </div>
+          <div class="task-badge">NEW QUEST</div>
+        </div>
+        <div class="task-bar"><div class="task-bar-fill"></div></div>
+      </div>
+      <p>带复选框 + 任务进度条 + "NEW QUEST"徽章</p>
+    </div>
+
+    <div class="card">
+      <h3>🔑 账号</h3>
+      <div class="account-card">
+        <div class="account-row">
+          <div class="account-icon">🔒</div>
+          <div class="account-info">
+            <div class="account-site">github.com</div>
+            <div class="account-pwd">••••••••</div>
+          </div>
+          <div class="account-reveal">点击揭开</div>
+        </div>
+      </div>
+      <p>保险箱风格，密码掩码，点击/悬停揭开</p>
+    </div>
+
+    <div class="card">
+      <h3>📔 日记</h3>
+      <div class="diary-card">
+        <div class="diary-header"><span class="diary-date">2026.06.16</span><span>☀️</span></div>
+        <div class="diary-body">今天阳光很好，去公园走了走，看到了樱花...</div>
+        <div class="diary-footer">心情: 开心</div>
+      </div>
+      <p>仿纸手帐质感 + 心情表情 + 日期</p>
+    </div>
+
+    <div class="card">
+      <h3>💡 想法</h3>
+      <div class="idea-card">
+        <div class="idea-glow">💡</div>
+        <div class="idea-title">做个自动整理文件的软件</div>
+        <div class="idea-desc">...可以根据文件类型自动归类...</div>
+        <span class="idea-tag">+ 延伸笔记</span>
+      </div>
+      <p>灯泡发光暗示 + 可扩展笔记</p>
+    </div>
+
+    <div class="card">
+      <h3>🔗 链接</h3>
+      <div class="link-card">
+        <div class="link-row">
+          <div class="link-favicon">🌐</div>
+          <div class="link-text">
+            <div class="link-name">GitHub Trending</div>
+            <div class="link-url">github.com/trending</div>
+          </div>
+          <div class="link-btn">打开</div>
+        </div>
+      </div>
+      <p>浏览器风格卡片 + "打开"按钮直达</p>
+    </div>
+
+    <div class="card">
+      <h3>📚 待读</h3>
+      <div class="reading-card">
+        <div class="reading-row">
+          <div class="reading-icon">📖</div>
+          <div class="reading-info">
+            <div class="reading-name">三体</div>
+            <div class="reading-author">刘慈欣</div>
+          </div>
+          <div class="reading-progress-text">30%</div>
+        </div>
+        <div class="reading-bar"><div class="reading-bar-fill"></div></div>
+      </div>
+      <p>书架风格 + 进度条追踪阅读</p>
+    </div>
+
+    <div class="card">
+      <h3>📜 语录</h3>
+      <div class="quote-card">
+        <div class="quote-mark">"</div>
+        <div class="quote-body">保持好奇，保持愚蠢。</div>
+        <div class="quote-author">—— Steve Jobs</div>
+      </div>
+      <p>羊皮纸调 + 大引号 + 署名</p>
+    </div>
+
+    <div class="card">
+      <h3>📝 备忘</h3>
+      <div class="memo-card">
+        <div class="memo-pin"></div>
+        <div class="memo-title">周三要带身份证</div>
+        <div class="memo-tag">#提醒</div>
+      </div>
+      <p>黄色便利贴 + 卷角 + 轻微旋转</p>
+    </div>
+
+  </div>
+</body>
+</html>

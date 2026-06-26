@@ -1,0 +1,132 @@
+<h2>🎮 每条记录都是一件"物品"</h2>
+<p class="subtitle">不再是统一的数据行，每种类型有独特的视觉身份</p>
+
+<div class="cards" style="grid-template-columns: repeat(2, 1fr);">
+
+  <div class="card" data-choice="task">
+    <div class="card-body">
+      <h3>📋 任务</h3>
+      <div style="background:#1a1a2e;border-radius:12px;padding:16px;margin:8px 0;font-size:14px;color:#e0e0e0">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:18px;height:18px;border:2px solid #4ecdc4;border-radius:4px"></div>
+          <div style="flex:1">
+            <div style="font-weight:600;color:#fff">买牛奶</div>
+            <div style="font-size:12px;color:#888">优先级: 普通</div>
+          </div>
+          <div style="background:#4ecdc4;color:#1a1a2e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">NEW QUEST</div>
+        </div>
+        <div style="height:3px;background:#333;border-radius:2px">
+          <div style="width:0%;height:100%;background:#4ecdc4;border-radius:2px"></div>
+        </div>
+      </div>
+      <p style="color:#888;font-size:13px">带复选框 + 任务进度条 + "NEW QUEST"徽章</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="account">
+    <div class="card-body">
+      <h3>🔑 账号</h3>
+      <div style="background:#1a1a2e;border-radius:12px;padding:16px;margin:8px 0;font-size:14px;color:#e0e0e0">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="font-size:20px">🔒</div>
+          <div style="flex:1">
+            <div style="color:#aaa;font-size:12px">github.com</div>
+            <div style="font-family:monospace;letter-spacing:2px;color:#ffd700">••••••••</div>
+          </div>
+          <div style="background:#2a2a2a;padding:4px 8px;border-radius:6px;font-size:11px;color:#aaa">点击揭开</div>
+        </div>
+      </div>
+      <p style="color:#888;font-size:13px">保险箱风格，密码掩码，悬停/点击揭开</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="diary">
+    <div class="card-body">
+      <h3>📔 日记</h3>
+      <div style="background:#f5e6c8;border-radius:4px;padding:16px;margin:8px 0;font-size:13px;color:#3a3a3a;font-family:Georgia,serif;box-shadow:0 2px 8px rgba(0,0,0,0.3)">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="font-weight:600">2026.06.16</span>
+          <span>☀️</span>
+        </div>
+        <div style="line-height:1.6">今天阳光很好，去公园走了走，看到了樱花...</div>
+        <div style="margin-top:12px;font-size:11px;color:#888;border-top:1px dashed #ccc;padding-top:8px;text-align:right">心情: 开心</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="idea">
+    <div class="card-body">
+      <h3>💡 想法</h3>
+      <div style="background:#1a1a2e;border-radius:12px;padding:16px;margin:8px 0;font-size:14px;color:#e0e0e0;position:relative;overflow:hidden">
+        <div style="font-size:32px;position:absolute;top:-5px;right:10px;opacity:0.3">💡</div>
+        <div style="font-weight:600;color:#ffd700;margin-bottom:4px">做个自动整理文件的软件</div>
+        <div style="font-size:12px;color:#888">...可以根据文件类型自动归类...</div>
+        <div style="margin-top:8px;display:flex;gap:4px">
+          <span style="background:#ffd70022;color:#ffd700;padding:2px 6px;border-radius:4px;font-size:11px">+ 延伸笔记</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="link">
+    <div class="card-body">
+      <h3>🔗 链接</h3>
+      <div style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;margin:8px 0;font-size:13px;color:#333">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;background:#f0f0f0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px">🌐</div>
+          <div style="flex:1;overflow:hidden">
+            <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">GitHub Trending</div>
+            <div style="font-size:11px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">github.com/trending</div>
+          </div>
+          <div style="background:#4ecdc4;color:#fff;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600">打开</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="reading">
+    <div class="card-body">
+      <h3>📚 待读</h3>
+      <div style="background:#1a1a2e;border-radius:12px;padding:16px;margin:8px 0;font-size:14px;color:#e0e0e0">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:24px">📖</div>
+          <div style="flex:1">
+            <div style="font-weight:600;color:#fff">三体</div>
+            <div style="font-size:12px;color:#888">刘慈欣</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:700;color:#4ecdc4">30%</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;height:4px;background:#333;border-radius:2px">
+          <div style="width:30%;height:100%;background:linear-gradient(90deg,#4ecdc4,#44a08d);border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="quote">
+    <div class="card-body">
+      <h3>📜 语录</h3>
+      <div style="background:#2a1a1a;border-left:4px solid #c9a96e;border-radius:0 12px 12px 0;padding:16px;margin:8px 0;font-size:14px;color:#e0c9a6;font-style:italic">
+        <div style="font-size:24px;opacity:0.5;line-height:0.5">"</div>
+        <div style="padding:0 12px;line-height:1.6">保持好奇，保持愚蠢。</div>
+        <div style="text-align:right;font-size:12px;color:#888;margin-top:8px">—— Steve Jobs</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="memo">
+    <div class="card-body">
+      <h3>📝 备忘</h3>
+      <div style="background:#fffde7;border:1px solid #f0e68c;border-radius:4px;padding:16px;margin:8px 0;font-size:13px;color:#5a5a3a;box-shadow:2px 3px 6px rgba(0,0,0,0.15);transform:rotate(-1deg);position:relative">
+        <div style="position:absolute;top:-8px;left:50%;margin-left:-12px;width:24px;height:24px;background:#ffe082;border-radius:0 0 12px 12px"></div>
+        <div style="font-weight:600;margin-bottom:4px">周三要带身份证</div>
+        <div style="font-size:11px;color:#888">tag: 提醒</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="margin-top:24px;color:#888;font-size:14px;text-align:center">👇 点击你最喜欢的卡片，说说感觉对不对</p>
